@@ -139,6 +139,17 @@ def fuzzy_score(query: str, text: str) -> int:
     return score - len(t) // 12
 
 
+def app_score(query: str, name: str, generic: str | None, aliases: list[str]) -> int:
+    """Name first, then generic name, then keywords / executable, each less direct than the last."""
+    score = fuzzy_score(query, name)
+    if score >= 0:
+        return score
+    if generic and (score := fuzzy_score(query, generic)) >= 0:
+        return score - 40
+    hits = [s for alias in aliases if (s := fuzzy_score(query, alias)) >= 0]
+    return max(hits) - 60 if hits else -1
+
+
 def is_wanted_path(path: str) -> bool:
     """Keep paths inside $HOME, skipping hidden entries and node_modules."""
     if not path.startswith(HOME + "/"):
@@ -392,11 +403,8 @@ class SpotWindow(Gtk.ApplicationWindow):
         results = []
         for info in self._app.apps:
             name = info.get_display_name()
-            score = fuzzy_score(query, name)
-            if score < 0 and (generic := info.get_generic_name()):
-                score = fuzzy_score(query, generic)
-                if score >= 0:
-                    score -= 40  # less direct than a match on the name
+            aliases = [*info.get_keywords(), os.path.basename(info.get_executable() or "")]
+            score = app_score(query, name, info.get_generic_name(), aliases)
             if score >= 0:
                 score += self._app.usage.bonus(info.get_id())
                 icon = info.get_icon() or Gio.ThemedIcon.new("application-x-executable")

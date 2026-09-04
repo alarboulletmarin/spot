@@ -11,6 +11,17 @@ def test_fuzzy_score():
     assert spot.fuzzy_score("term", "GNOME Terminal") > spot.fuzzy_score("term", "Determinant")  # word start bonus
 
 
+def test_app_score():
+    assert spot.app_score("browser", "Firefox", "Web Browser", []) >= 0            # generic name
+    assert spot.app_score("gimp", "GNU Image Manipulation Program", None, ["GIMP"]) >= 0  # keyword
+    assert spot.app_score("nvim", "Neovim", None, ["nvim"]) >= 0                   # executable
+    assert spot.app_score("zzz", "Neovim", "Editor", ["nvim"]) == -1
+    name = spot.app_score("fire", "Firefox", "Web Browser", ["fire"])
+    generic = spot.app_score("fire", "Other", "Firewall", ["fire"])
+    alias = spot.app_score("fire", "Other", "Tool", ["fire"])
+    assert name > generic > alias                                                   # directness order
+
+
 def test_is_wanted_path():
     home = spot.HOME
     assert spot.is_wanted_path(f"{home}/Documents/notes.md")
@@ -53,6 +64,7 @@ def test_usage_counts_persist():
 
 if __name__ == "__main__":
     test_fuzzy_score()
+    test_app_score()
     test_is_wanted_path()
     test_translations_cover_source_strings()
     test_usage_counts_persist()
