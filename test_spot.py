@@ -37,8 +37,23 @@ def test_translations_cover_source_strings():
         assert ids <= msgids, f"{po.name}: missing {ids - msgids}"
 
 
+def test_usage_counts_persist():
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        path = f"{d}/sub/usage.json"
+        usage = spot.Usage(path)
+        assert usage.bonus("a") == 0
+        for _ in range(3):
+            usage.bump("a")
+        assert spot.Usage(path).bonus("a") == 30  # reloaded from disk
+        for _ in range(20):
+            usage.bump("a")
+        assert usage.bonus("a") == 100  # capped
+
+
 if __name__ == "__main__":
     test_fuzzy_score()
     test_is_wanted_path()
     test_translations_cover_source_strings()
+    test_usage_counts_persist()
     print("ok")

@@ -54,6 +54,7 @@ if __name__ == "__main__" and len(sys.argv) == 1 and wake_resident_instance():
     raise SystemExit(0)
 
 import gettext  # noqa: E402
+import json  # noqa: E402
 from collections.abc import Callable  # noqa: E402
 from dataclasses import dataclass  # noqa: E402
 from functools import partial  # noqa: E402
@@ -144,6 +145,30 @@ def is_wanted_path(path: str) -> bool:
         return False
     rel = path[len(HOME):]  # starts with "/"
     return "/." not in rel and "/node_modules/" not in rel + "/"
+
+
+class Usage:
+    """Launch counts per application, so what you use floats up. Persisted as JSON."""
+
+    def __init__(self, path: str):
+        self.path = path
+        try:
+            with open(path) as f:
+                self.counts: dict[str, int] = json.load(f)
+        except (OSError, ValueError):
+            self.counts = {}
+
+    def bump(self, key: str) -> None:
+        self.counts[key] = self.counts.get(key, 0) + 1
+        os.makedirs(os.path.dirname(self.path), exist_ok=True)
+        tmp = self.path + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(self.counts, f)
+        os.replace(tmp, self.path)  # atomic: never a half-written file
+
+    def bonus(self, key: str) -> int:
+        # ponytail: plain counts, add time decay if old habits stick around too long
+        return 10 * min(self.counts.get(key, 0), 10)
 
 
 def make_label(text: str, css: str | None = None) -> Gtk.Label:
@@ -373,15 +398,19 @@ class SpotWindow(Gtk.ApplicationWindow):
                 if score >= 0:
                     score -= 40  # less direct than a match on the name
             if score >= 0:
+                score += self._app.usage.bonus(info.get_id())
                 icon = info.get_icon() or Gio.ThemedIcon.new("application-x-executable")
                 results.append(Result(score, name, info.get_description() or "",
                                       _("Application"), icon, partial(self._launch_app, info)))
         results.sort(key=lambda r: -r.score)
         return results
 
-    @staticmethod
-    def _launch_app(info: Gio.AppInfo, context: Gdk.AppLaunchContext) -> None:
+    def _launch_app(self, info: Gio.AppInfo, context: Gdk.AppLaunchContext) -> None:
         info.launch(None, context)
+        try:
+            self._app.usage.bump(info.get_id())
+        except OSError as error:
+            print(f"spot: cannot save usage counts: {error}", file=sys.stderr)
 
     @staticmethod
     def _open_path(path: str, context: Gdk.AppLaunchContext) -> None:
@@ -490,6 +519,7 @@ class SpotApp(Adw.Application):
                          flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE)
         self.apps: list[Gio.AppInfo] = []
         self.providers: list[SearchProvider] = []
+        self.usage = Usage(os.path.join(GLib.get_user_data_dir(), "spot", "usage.json"))
         self.window: SpotWindow | None = None
 
     def do_startup(self) -> None:

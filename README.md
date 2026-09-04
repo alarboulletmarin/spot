@@ -11,7 +11,7 @@ Meant to be what Raycast is on macOS: a window that opens on a shortcut, filters
 - **Everything the Activities overview finds** — calculator results, Settings panels, Nautilus files: spot queries the same GNOME Shell search providers over D-Bus, and honours what you enabled in Settings → Search.
 - **Resident** — the first invocation stays in the background; every later `spot` only asks it over D-Bus to show its window. That call goes through `gdbus` before Python loads GTK, so it takes about 30 ms instead of 200 ms.
 
-Ranking is a subsequence score: a literal match always wins, word starts get a bonus, shorter paths break ties.
+Ranking is a subsequence score: a literal match always wins, word starts get a bonus, shorter paths break ties. Applications you launch often get a bonus (counts in `~/.local/share/spot/usage.json`).
 
 The interface follows the system language (English, French; add yours in `po/`). Application names and descriptions are already localized by GLib.
 
