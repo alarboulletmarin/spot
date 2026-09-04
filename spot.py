@@ -182,6 +182,20 @@ class Usage:
         return 10 * min(self.counts.get(key, 0), 10)
 
 
+def run_command(command: str, context: Gdk.AppLaunchContext) -> None:
+    Gio.AppInfo.create_from_commandline(command, None, Gio.AppInfoCreateFlags.NONE).launch(None, context)
+
+
+def command_result(query: str) -> Result | None:
+    """Nothing matched: offer to run the text as a command, if its program exists."""
+    program = query.split()[0] if query.strip() else ""
+    if not program or not GLib.find_program_in_path(program):
+        return None
+    return Result(0, _("Run “%s”") % query, _("Runs in the background, without a terminal"),
+                  _("Command"), Gio.ThemedIcon.new("utilities-terminal-symbolic"),
+                  partial(run_command, query))
+
+
 def make_label(text: str, css: str | None = None) -> Gtk.Label:
     label = Gtk.Label(label=text, xalign=0, ellipsize=Pango.EllipsizeMode.END)
     if css:
@@ -273,6 +287,7 @@ class SpotWindow(Gtk.ApplicationWindow):
         self._app = app
         self._results: list[Result] = []
         self._sections: dict[str, list[Result]] = {}  # per source, merged by _render()
+        self._query = ""
         self._generation = 0
         self._cancellable = Gio.Cancellable()
         self._debounce_id = 0
@@ -370,7 +385,7 @@ class SpotWindow(Gtk.ApplicationWindow):
         if self._file_proc is not None:
             self._file_proc.force_exit()
             self._file_proc = None
-        query = self.entry.get_text().strip()
+        query = self._query = self.entry.get_text().strip()
 
         self._sections = {}
         if not query:
@@ -397,7 +412,10 @@ class SpotWindow(Gtk.ApplicationWindow):
 
     def _render(self) -> None:
         order = ["apps", *(p.desktop_id for p in self._app.providers), "files"]
-        self._show_results([r for key in order for r in self._sections.get(key, [])])
+        results = [r for key in order for r in self._sections.get(key, [])]
+        if not results and (fallback := command_result(self._query)):
+            results = [fallback]
+        self._show_results(results)
 
     def _search_apps(self, query: str) -> list[Result]:
         results = []

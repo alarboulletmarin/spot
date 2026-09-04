@@ -22,6 +22,12 @@ def test_app_score():
     assert name > generic > alias                                                   # directness order
 
 
+def test_command_result():
+    assert spot.command_result("ls -la").kind == spot._("Command")
+    assert spot.command_result("no-such-program-xyz --flag") is None
+    assert spot.command_result("") is None
+
+
 def test_is_wanted_path():
     home = spot.HOME
     assert spot.is_wanted_path(f"{home}/Documents/notes.md")
@@ -65,6 +71,7 @@ def test_usage_counts_persist():
 if __name__ == "__main__":
     test_fuzzy_score()
     test_app_score()
+    test_command_result()
     test_is_wanted_path()
     test_translations_cover_source_strings()
     test_usage_counts_persist()

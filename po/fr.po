@@ -27,3 +27,13 @@ msgstr "Fichier"
 #, python-format
 msgid "Launch failed: %s"
 msgstr "Échec du lancement : %s"
+
+#, python-format
+msgid "Run “%s”"
+msgstr "Exécuter « %s »"
+
+msgid "Runs in the background, without a terminal"
+msgstr "S'exécute en arrière-plan, sans terminal"
+
+msgid "Command"
+msgstr "Commande"
