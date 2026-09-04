@@ -6,6 +6,8 @@ asks it over D-Bus to show its window, so opening is instant.
 
 Applications: Gio.AppInfo, refreshed whenever the desktop database changes.
 Files:        plocate, queried asynchronously on each keystroke (debounced).
+Everything else (calculator, settings panels…): the GNOME Shell search
+providers, the same D-Bus services the Activities overview queries.
 """
 
 from __future__ import annotations
@@ -52,7 +54,9 @@ if __name__ == "__main__" and len(sys.argv) == 1 and wake_resident_instance():
     raise SystemExit(0)
 
 import gettext  # noqa: E402
+from collections.abc import Callable  # noqa: E402
 from dataclasses import dataclass  # noqa: E402
+from functools import partial  # noqa: E402
 
 import gi  # noqa: E402
 
@@ -65,6 +69,10 @@ if Gtk.check_version(4, 12, 0):  # None when the running GTK is recent enough
 
 MAX_APPS = 8
 MAX_FILES = 25
+MAX_PROVIDER_RESULTS = 5
+MIN_PROVIDER_QUERY = 2
+PROVIDER_TIMEOUT_MS = 3000  # a provider may have to be D-Bus activated first
+SEARCH_PROVIDER_IFACE = "org.gnome.Shell.SearchProvider2"
 DEBOUNCE_MS = 90
 MIN_FILE_QUERY = 3  # 2-letter queries yield ~100k plocate candidates (~0.5 s); 3 letters ~30k
 HOME = os.path.expanduser("~")
@@ -98,14 +106,14 @@ window.spot { background-color: transparent; }
 
 @dataclass(slots=True)
 class Result:
-    """One result row. `payload` is what gets launched."""
+    """One result row. `activate` launches it."""
 
     score: int
     title: str
     subtitle: str
     kind: str
     gicon: Gio.Icon
-    payload: Gio.AppInfo | str
+    activate: Callable[[Gdk.AppLaunchContext], None]
 
 
 def fuzzy_score(query: str, text: str) -> int:
@@ -145,6 +153,81 @@ def make_label(text: str, css: str | None = None) -> Gtk.Label:
     return label
 
 
+class SearchProvider:
+    """A GNOME Shell search provider, queried over D-Bus like the Activities overview does."""
+
+    GROUP = "Shell Search Provider"
+
+    def __init__(self, keyfile: GLib.KeyFile, bus: Gio.DBusConnection):
+        self.desktop_id = keyfile.get_string(self.GROUP, "DesktopId")
+        self.bus_name = keyfile.get_string(self.GROUP, "BusName")
+        self.object_path = keyfile.get_string(self.GROUP, "ObjectPath")
+        try:
+            self.default_disabled = keyfile.get_boolean(self.GROUP, "DefaultDisabled")
+        except GLib.Error:  # key absent
+            self.default_disabled = False
+        self._bus = bus
+        info = Gio.DesktopAppInfo.new(self.desktop_id)
+        self.label = info.get_display_name() if info else self.desktop_id
+        self.icon = (info.get_icon() if info else None) or Gio.ThemedIcon.new("system-search-symbolic")
+
+    def _call(self, method: str, args: GLib.Variant, reply_type: str | None,
+              cancellable: Gio.Cancellable | None, callback, data=None) -> None:
+        self._bus.call(self.bus_name, self.object_path, SEARCH_PROVIDER_IFACE, method, args,
+                       GLib.VariantType(reply_type) if reply_type else None,
+                       Gio.DBusCallFlags.NONE, PROVIDER_TIMEOUT_MS, cancellable, callback, data)
+
+    def search(self, terms: list[str], cancellable: Gio.Cancellable, callback) -> None:
+        """Calls `callback(provider, results)`; silently nothing on error or cancellation."""
+        self._call("GetInitialResultSet", GLib.Variant("(as)", (terms,)), "(as)", cancellable,
+                   self._on_ids, (terms, cancellable, callback))
+
+    def _on_ids(self, bus, res, data) -> None:
+        terms, cancellable, callback = data
+        try:
+            ids = bus.call_finish(res).unpack()[0][:MAX_PROVIDER_RESULTS]
+        except GLib.Error:
+            return
+        if not ids:
+            callback(self, [])
+            return
+        self._call("GetResultMetas", GLib.Variant("(as)", (ids,)), "(aa{sv})", cancellable,
+                   self._on_metas, (terms, callback))
+
+    def _on_metas(self, bus, res, data) -> None:
+        terms, callback = data
+        try:
+            metas = bus.call_finish(res).get_child_value(0)
+        except GLib.Error:
+            return
+        string = GLib.VariantType("s")
+        results = []
+        for i in range(metas.n_children()):
+            meta = metas.get_child_value(i)
+
+            def text(key: str) -> str:
+                value = meta.lookup_value(key, string)
+                return value.get_string() if value is not None else ""
+
+            results.append(Result(0, text("name"), text("description"), self.label,
+                                  self._meta_icon(meta) or self.icon,
+                                  partial(self.activate, text("id"), terms, text("clipboardText"))))
+        callback(self, results)
+
+    @staticmethod
+    def _meta_icon(meta: GLib.Variant) -> Gio.Icon | None:
+        if (icon := meta.lookup_value("icon", None)) is not None:  # serialized GIcon
+            return Gio.Icon.deserialize(icon)
+        if (name := meta.lookup_value("gicon", GLib.VariantType("s"))) is not None:
+            return Gio.Icon.new_for_string(name.get_string())
+        return None
+
+    def activate(self, result_id: str, terms: list[str], clipboard_text: str, _context) -> None:
+        if clipboard_text:  # as the Shell does: copy the result, then tell the provider
+            Gdk.Display.get_default().get_clipboard().set(clipboard_text)
+        self._call("ActivateResult", GLib.Variant("(sasu)", (result_id, terms, 0)), None, None, None)
+
+
 class SpotWindow(Gtk.ApplicationWindow):
     def __init__(self, app: SpotApp):
         super().__init__(application=app, decorated=False, resizable=False)
@@ -153,8 +236,9 @@ class SpotWindow(Gtk.ApplicationWindow):
 
         self._app = app
         self._results: list[Result] = []
-        self._app_results: list[Result] = []
+        self._sections: dict[str, list[Result]] = {}  # per source, merged by _render()
         self._generation = 0
+        self._cancellable = Gio.Cancellable()
         self._debounce_id = 0
         self._file_proc: Gio.Subprocess | None = None
 
@@ -244,22 +328,40 @@ class SpotWindow(Gtk.ApplicationWindow):
     def _search(self) -> bool:
         self._debounce_id = 0
         self._generation += 1
-        if self._file_proc is not None:  # a newer keystroke supersedes it
+        generation = self._generation
+        self._cancellable.cancel()  # a newer keystroke supersedes everything in flight
+        self._cancellable = Gio.Cancellable()
+        if self._file_proc is not None:
             self._file_proc.force_exit()
             self._file_proc = None
         query = self.entry.get_text().strip()
 
+        self._sections = {}
         if not query:
-            self._app_results = []
-            self._show_results([])
+            self._render()
             return GLib.SOURCE_REMOVE
 
-        self._app_results = self._search_apps(query)[:MAX_APPS]
-        self._show_results(self._app_results)  # show right away, files follow
+        self._sections["apps"] = self._search_apps(query)[:MAX_APPS]
+        self._render()  # show right away, D-Bus and plocate answers follow
 
+        if len(query) >= MIN_PROVIDER_QUERY:
+            for provider in self._app.providers:
+                provider.search(query.split(), self._cancellable,
+                                partial(self._on_provider_results, generation))
         if len(query) >= MIN_FILE_QUERY:
-            self._search_files(query, self._generation)
+            self._search_files(query, generation)
         return GLib.SOURCE_REMOVE
+
+    def _on_provider_results(self, generation: int, provider: SearchProvider,
+                             results: list[Result]) -> None:
+        if generation != self._generation:
+            return
+        self._sections[provider.desktop_id] = results
+        self._render()
+
+    def _render(self) -> None:
+        order = ["apps", *(p.desktop_id for p in self._app.providers), "files"]
+        self._show_results([r for key in order for r in self._sections.get(key, [])])
 
     def _search_apps(self, query: str) -> list[Result]:
         results = []
@@ -273,9 +375,17 @@ class SpotWindow(Gtk.ApplicationWindow):
             if score >= 0:
                 icon = info.get_icon() or Gio.ThemedIcon.new("application-x-executable")
                 results.append(Result(score, name, info.get_description() or "",
-                                      _("Application"), icon, info))
+                                      _("Application"), icon, partial(self._launch_app, info)))
         results.sort(key=lambda r: -r.score)
         return results
+
+    @staticmethod
+    def _launch_app(info: Gio.AppInfo, context: Gdk.AppLaunchContext) -> None:
+        info.launch(None, context)
+
+    @staticmethod
+    def _open_path(path: str, context: Gdk.AppLaunchContext) -> None:
+        Gio.AppInfo.launch_default_for_uri(Gio.File.new_for_path(path).get_uri(), context)
 
     def _search_files(self, query: str, generation: int) -> None:
         # --basename: match the file name only; the whole path would surface
@@ -317,14 +427,18 @@ class SpotWindow(Gtk.ApplicationWindow):
             content_type = "inode/directory" if is_dir else Gio.content_type_guess(name, None)[0]
             files.append(Result(fuzzy_score(query, name), name,
                                 path.replace(HOME, "~", 1), _("Folder") if is_dir else _("File"),
-                                Gio.content_type_get_icon(content_type), path))
+                                Gio.content_type_get_icon(content_type),
+                                partial(self._open_path, path)))
             if len(files) >= MAX_FILES:
                 break
-        self._show_results(self._app_results + files)
+        self._sections["files"] = files
+        self._render()
 
     # -- display ---------------------------------------------------------
 
     def _show_results(self, results: list[Result]) -> None:
+        selected = self.list.get_selected_row()
+        index = selected.get_index() if selected else 0  # keep the user's pick when late results land
         self._results = results
         self.list.remove_all()
 
@@ -352,7 +466,7 @@ class SpotWindow(Gtk.ApplicationWindow):
         self.scroller.set_visible(visible)
         self.sep.set_visible(visible)
         if visible:
-            self.list.select_row(self.list.get_row_at_index(0))
+            self.list.select_row(self.list.get_row_at_index(min(index, len(results) - 1)))
 
     # -- launching -------------------------------------------------------
 
@@ -363,13 +477,8 @@ class SpotWindow(Gtk.ApplicationWindow):
         if row is None or row.get_index() >= len(self._results):
             return
         item = self._results[row.get_index()]
-        context = self.get_display().get_app_launch_context()
         try:
-            if isinstance(item.payload, str):
-                uri = Gio.File.new_for_path(item.payload).get_uri()
-                Gio.AppInfo.launch_default_for_uri(uri, context)
-            else:
-                item.payload.launch(None, context)
+            item.activate(self.get_display().get_app_launch_context())
         except GLib.Error as error:
             print("spot: " + _("Launch failed: %s") % error.message, file=sys.stderr)
         self._dismiss()
@@ -380,6 +489,7 @@ class SpotApp(Adw.Application):
         super().__init__(application_id=APP_ID,
                          flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE)
         self.apps: list[Gio.AppInfo] = []
+        self.providers: list[SearchProvider] = []
         self.window: SpotWindow | None = None
 
     def do_startup(self) -> None:
@@ -393,9 +503,48 @@ class SpotApp(Adw.Application):
         self._app_monitor = Gio.AppInfoMonitor.get()  # keep a reference or the signal is lost
         self._app_monitor.connect("changed", lambda *_: self._load_apps())
         self._load_apps()
+        self.providers = self._load_search_providers()
 
     def _load_apps(self) -> None:
         self.apps = [app for app in Gio.AppInfo.get_all() if app.should_show()]
+
+    def _load_search_providers(self) -> list[SearchProvider]:
+        """The providers the Activities overview would query, honouring Settings → Search."""
+        bus = self.get_dbus_connection()
+        if bus is None:
+            return []
+        disabled: list[str] = []
+        enabled: list[str] = []
+        order: list[str] = []
+        source = Gio.SettingsSchemaSource.get_default()
+        if source is not None and source.lookup("org.gnome.desktop.search-providers", True):
+            settings = Gio.Settings.new("org.gnome.desktop.search-providers")
+            if settings.get_boolean("disable-external"):
+                return []
+            disabled, enabled = settings.get_strv("disabled"), settings.get_strv("enabled")
+            order = settings.get_strv("sort-order")
+
+        providers: dict[str, SearchProvider] = {}
+        for data_dir in GLib.get_system_data_dirs():
+            directory = os.path.join(data_dir, "gnome-shell", "search-providers")
+            if not os.path.isdir(directory):
+                continue
+            for name in sorted(os.listdir(directory)):
+                if not name.endswith(".ini"):
+                    continue
+                keyfile = GLib.KeyFile()
+                try:
+                    keyfile.load_from_file(os.path.join(directory, name), GLib.KeyFileFlags.NONE)
+                    provider = SearchProvider(keyfile, bus)
+                except GLib.Error:
+                    continue  # malformed .ini
+                if provider.desktop_id in providers or provider.desktop_id in disabled:
+                    continue
+                if provider.default_disabled and provider.desktop_id not in enabled:
+                    continue
+                providers[provider.desktop_id] = provider
+        return sorted(providers.values(), key=lambda p: (
+            order.index(p.desktop_id) if p.desktop_id in order else len(order), p.label))
 
     def do_command_line(self, command_line) -> int:
         args = command_line.get_arguments()

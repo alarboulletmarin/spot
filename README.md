@@ -8,6 +8,7 @@ Meant to be what Raycast is on macOS: a window that opens on a shortcut, filters
 
 - **Applications** — enumerated with `Gio.AppInfo`, refreshed automatically when an application is installed or removed.
 - **Files** — `plocate` queried asynchronously on each keystroke (90 ms debounce, from 3 characters), matched on the file name only, limited to your home directory, hidden entries and `node_modules` skipped.
+- **Everything the Activities overview finds** — calculator results, Settings panels, Nautilus files: spot queries the same GNOME Shell search providers over D-Bus, and honours what you enabled in Settings → Search.
 - **Resident** — the first invocation stays in the background; every later `spot` only asks it over D-Bus to show its window. That call goes through `gdbus` before Python loads GTK, so it takes about 30 ms instead of 200 ms.
 
 Ranking is a subsequence score: a literal match always wins, word starts get a bonus, shorter paths break ties.
@@ -76,7 +77,7 @@ A checkout runs in English: translations are compiled at install time. To add a 
 
 ## Known limits
 
-- Applications and files only: no calculator, no clipboard history.
+- No clipboard history and no window switcher: under Wayland a background application can neither watch the clipboard nor list windows.
 - File search depends on the `plocate` database (`plocate-updatedb.timer`, daily by default); entries that no longer exist are hidden.
 
 ## License
