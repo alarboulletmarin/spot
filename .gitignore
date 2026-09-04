@@ -1,0 +1,5 @@
+# makepkg artifacts
+/pkg/
+/src/
+/*.pkg.tar.zst
+__pycache__/
