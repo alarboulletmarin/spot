@@ -10,7 +10,7 @@ license=('MIT')
 depends=('python' 'python-gobject' 'gtk4' 'libadwaita' 'glib2')
 optdepends=('plocate: indexed file search')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('SKIP')
+sha256sums=('644466fefd1c4cc086906adb3bc625208ad8d46300e4312c707b4bf5f8784aea')
 
 package() {
     cd "$_name-$pkgver"
