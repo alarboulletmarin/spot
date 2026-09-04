@@ -51,6 +51,7 @@ def wake_resident_instance() -> bool:
 if __name__ == "__main__" and len(sys.argv) == 1 and wake_resident_instance():
     raise SystemExit(0)
 
+import gettext  # noqa: E402
 from dataclasses import dataclass  # noqa: E402
 
 import gi  # noqa: E402
@@ -59,11 +60,19 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk, Pango  # noqa: E402
 
+if Gtk.check_version(4, 12, 0):  # None when the running GTK is recent enough
+    raise SystemExit("spot needs GTK 4.12 or newer")
+
 MAX_APPS = 8
 MAX_FILES = 25
 DEBOUNCE_MS = 90
 MIN_FILE_QUERY = 3  # 2-letter queries yield ~100k plocate candidates (~0.5 s); 3 letters ~30k
 HOME = os.path.expanduser("~")
+# Translations sit next to the install prefix (/usr/bin/spot -> /usr/share/locale);
+# a checkout has none and runs in English.
+LOCALEDIR = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))),
+                         "share", "locale")
+_ = gettext.translation("spot", LOCALEDIR, fallback=True).gettext
 
 CSS = """
 window.spot { background-color: transparent; }
@@ -153,7 +162,7 @@ class SpotWindow(Gtk.ApplicationWindow):
         card.add_css_class("spot-card")
         self.set_child(card)
 
-        self.entry = Gtk.Entry(placeholder_text="Search applications and files…")
+        self.entry = Gtk.Entry(placeholder_text=_("Search applications and files…"))
         self.entry.add_css_class("spot-entry")
         self.entry.connect("changed", self._on_changed)
         self.entry.connect("activate", lambda *_: self._activate_selected())
@@ -264,7 +273,7 @@ class SpotWindow(Gtk.ApplicationWindow):
             if score >= 0:
                 icon = info.get_icon() or Gio.ThemedIcon.new("application-x-executable")
                 results.append(Result(score, name, info.get_description() or "",
-                                      "Application", icon, info))
+                                      _("Application"), icon, info))
         results.sort(key=lambda r: -r.score)
         return results
 
@@ -289,7 +298,7 @@ class SpotWindow(Gtk.ApplicationWindow):
             return  # superseded by a newer keystroke
         self._file_proc = None
         try:
-            ok, stdout, _ = proc.communicate_utf8_finish(result)
+            ok, stdout, _stderr = proc.communicate_utf8_finish(result)
         except GLib.Error:
             return
         if not ok or not stdout:
@@ -307,7 +316,7 @@ class SpotWindow(Gtk.ApplicationWindow):
             name = os.path.basename(path)
             content_type = "inode/directory" if is_dir else Gio.content_type_guess(name, None)[0]
             files.append(Result(fuzzy_score(query, name), name,
-                                path.replace(HOME, "~", 1), "Folder" if is_dir else "File",
+                                path.replace(HOME, "~", 1), _("Folder") if is_dir else _("File"),
                                 Gio.content_type_get_icon(content_type), path))
             if len(files) >= MAX_FILES:
                 break
@@ -362,7 +371,7 @@ class SpotWindow(Gtk.ApplicationWindow):
             else:
                 item.payload.launch(None, context)
         except GLib.Error as error:
-            print(f"spot: launch failed: {error.message}", file=sys.stderr)
+            print("spot: " + _("Launch failed: %s") % error.message, file=sys.stderr)
         self._dismiss()
 
 

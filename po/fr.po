@@ -1,0 +1,29 @@
+# French translation of spot.
+# This file is distributed under the same license as the spot package.
+msgid ""
+msgstr ""
+"Project-Id-Version: spot 0.2.0\n"
+"Report-Msgid-Bugs-To: https://github.com/alarboulletmarin/spot/issues\n"
+"PO-Revision-Date: 2026-09-04 22:00+0200\n"
+"Last-Translator: Andrea Larboullet Marin <a.larboulletmarin@gmail.com>\n"
+"Language-Team: French\n"
+"Language: fr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Search applications and files…"
+msgstr "Rechercher une application ou un fichier…"
+
+msgid "Application"
+msgstr "Application"
+
+msgid "Folder"
+msgstr "Dossier"
+
+msgid "File"
+msgstr "Fichier"
+
+#, python-format
+msgid "Launch failed: %s"
+msgstr "Échec du lancement : %s"

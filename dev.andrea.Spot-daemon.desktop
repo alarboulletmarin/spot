@@ -1,7 +1,9 @@
 [Desktop Entry]
 Type=Application
 Name=Spot (background service)
+Name[fr]=Spot (service en arrière-plan)
 Comment=Keeps the launcher resident so it opens instantly
+Comment[fr]=Garde le lanceur résident pour une ouverture immédiate
 Exec=spot --daemon
 Icon=dev.andrea.Spot
 Terminal=false

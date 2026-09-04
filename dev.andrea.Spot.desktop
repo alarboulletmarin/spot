@@ -2,9 +2,11 @@
 Type=Application
 Name=Spot
 Comment=Application and file launcher
+Comment[fr]=Lanceur d'applications et de fichiers
 Exec=spot
 Icon=dev.andrea.Spot
 Terminal=false
 Categories=Utility;
 Keywords=launcher;search;
+Keywords[fr]=lanceur;recherche;
 StartupNotify=true

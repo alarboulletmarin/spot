@@ -24,7 +24,21 @@ def test_is_wanted_path():
     assert not spot.is_wanted_path(home)
 
 
+
+
+def test_translations_cover_source_strings():
+    import re
+    from pathlib import Path
+    here = Path(__file__).parent
+    ids = set(re.findall(r'_\("([^"]+)"\)', (here / "spot.py").read_text()))
+    assert ids, "no translatable strings found"
+    for po in (here / "po").glob("*.po"):
+        msgids = set(re.findall(r'^msgid "(.+)"$', po.read_text(), re.M))
+        assert ids <= msgids, f"{po.name}: missing {ids - msgids}"
+
+
 if __name__ == "__main__":
     test_fuzzy_score()
     test_is_wanted_path()
+    test_translations_cover_source_strings()
     print("ok")

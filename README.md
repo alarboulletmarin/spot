@@ -12,6 +12,8 @@ Meant to be what Raycast is on macOS: a window that opens on a shortcut, filters
 
 Ranking is a subsequence score: a literal match always wins, word starts get a bonus, shorter paths break ties.
 
+The interface follows the system language (English, French; add yours in `po/`). Application names and descriptions are already localized by GLib.
+
 ## Shortcuts
 
 | Key | Action |
@@ -23,14 +25,35 @@ Ranking is a subsequence score: a literal match always wins, word starts get a b
 
 The window also closes as soon as it loses focus.
 
+## Supported platforms
+
+Linux only. The three building blocks are Linux-specific: applications come from `.desktop` files, files from `plocate`, and the resident process is woken over the D-Bus session bus. There is no plan for macOS (Raycast is there) or Windows.
+
+| Environment | Status |
+|---|---|
+| GNOME, Wayland or X11 | first-class, this is what it is built and tested on |
+| Any other GTK4 desktop (KDE Plasma, Hyprland, Sway…) | works, with the Adwaita look and a plain floating window; set the shortcut and a centering rule in your compositor |
+| Arch Linux | packaged, see below |
+| Fedora 40+, Ubuntu 24.04+, Debian 13+, openSUSE Tumbleweed | `make install` from a checkout |
+| Debian 12 and older | no, GTK is older than 4.12 |
+
+Requirements: Python 3.10+, PyGObject, GTK 4.12+, libadwaita 1, GLib (`gdbus`), and `plocate` for file search.
+
 ## Installation
 
+Arch Linux, from the AUR:
+
 ```bash
-makepkg -f
-sudo pacman -U spot-*.pkg.tar.zst
+paru -S spot-launcher   # or yay
 ```
 
-A background service starts with the session so the first opening is instant too; log out and back in, or start it by hand once: `spot --daemon &`.
+Any other distribution, from a checkout (needs `gettext` for `msgfmt`):
+
+```bash
+sudo make install       # PREFIX=/usr/local by default
+```
+
+Then log out and back in so the background service starts, or start it by hand once: `spot --daemon &`.
 
 Set the keyboard shortcut in GNOME (Settings → Keyboard → Custom Shortcuts, command `spot`): an application cannot grab a global shortcut under Wayland.
 
@@ -45,9 +68,11 @@ After upgrading, restart the resident process: `spot --quit && spot --daemon &`.
 ## Development
 
 ```bash
-./spot.py          # run from the checkout
-python3 test_spot.py
+spot --quit; ./spot.py --daemon &   # run the checkout as the resident instance
+make test                           # unit tests + translation files
 ```
+
+A checkout runs in English: translations are compiled at install time. To add a language, copy `po/spot.pot` to `po/<lang>.po` and fill in the `msgstr` lines.
 
 ## Known limits
 
