@@ -131,6 +131,7 @@ class Result:
     gicon: Gio.Icon
     activate: Callable[[Gdk.AppLaunchContext], None]
     alt_activate: Callable[[Gdk.AppLaunchContext], None] | None = None
+    path: str | None = None  # local file results: lets duplicates across sources collapse
 
 
 def fuzzy_score(query: str, text: str) -> int:
@@ -232,6 +233,34 @@ def command_result(query: str) -> Result | None:
                   partial(run_command, query))
 
 
+def open_path(path: str, context: Gdk.AppLaunchContext) -> None:
+    Gio.AppInfo.launch_default_for_uri(Gio.File.new_for_path(path).get_uri(), context)
+
+
+def reveal_path(path: str, context: Gdk.AppLaunchContext) -> None:
+    """Open the containing folder in the user's file manager.
+
+    org.freedesktop.FileManager1.ShowItems would also select the file, but it goes
+    to whichever file manager owns that bus name, and without an activation token
+    Mutter stacks the new window behind the current one, so nothing seems to happen.
+    """
+    folder = Gio.File.new_for_path(path).get_parent()
+    Gio.AppInfo.launch_default_for_uri(folder.get_uri(), context)
+
+
+def file_result(path: str, score: int) -> Result | None:
+    """A plocate or search-provider hit on a local path; None when the path is gone."""
+    try:
+        is_dir = stat.S_ISDIR(os.stat(path).st_mode)
+    except OSError:
+        return None  # stale index entry
+    name = os.path.basename(path)
+    content_type = "inode/directory" if is_dir else Gio.content_type_guess(name, None)[0]
+    return Result(score, name, path.replace(HOME, "~", 1), _("Folder") if is_dir else _("File"),
+                  Gio.content_type_get_icon(content_type), partial(open_path, path),
+                  partial(reveal_path, path), path)
+
+
 def make_label(text: str, css: str | None = None) -> Gtk.Label:
     label = Gtk.Label(label=text, xalign=0, ellipsize=Pango.EllipsizeMode.END)
     if css:
@@ -295,6 +324,11 @@ class SearchProvider:
                 value = meta.lookup_value(key, string)
                 return value.get_string() if value is not None else ""
 
+            if text("id").startswith("file://"):  # e.g. Nautilus: show it like our own file hits
+                path = Gio.File.new_for_uri(text("id")).get_path()
+                if path and (result := file_result(path, 0)):
+                    results.append(result)
+                continue
             results.append(Result(0, text("name"), text("description"), self.label,
                                   self._meta_icon(meta) or self.icon,
                                   partial(self.activate, text("id"), terms, text("clipboardText"))))
@@ -451,7 +485,15 @@ class SpotWindow(Gtk.ApplicationWindow):
 
     def _render(self) -> None:
         order = ["apps", *(p.desktop_id for p in self._app.providers), "files"]
-        results = [r for key in order for r in self._sections.get(key, [])]
+        results: list[Result] = []
+        seen: set[str] = set()
+        for key in order:
+            for result in self._sections.get(key, []):
+                if result.path is not None:
+                    if result.path in seen:
+                        continue  # the same file found by a provider and by plocate
+                    seen.add(result.path)
+                results.append(result)
         if not results and (fallback := command_result(self._query)):
             results = [fallback]
         self._show_results(results)
@@ -477,21 +519,6 @@ class SpotWindow(Gtk.ApplicationWindow):
             self._app.usage.bump(info.get_id())
         except OSError as error:
             print(f"spot: cannot save usage counts: {error}", file=sys.stderr)
-
-    @staticmethod
-    def _open_path(path: str, context: Gdk.AppLaunchContext) -> None:
-        Gio.AppInfo.launch_default_for_uri(Gio.File.new_for_path(path).get_uri(), context)
-
-    @staticmethod
-    def _reveal_path(path: str, context: Gdk.AppLaunchContext) -> None:
-        """Open the containing folder in the user's file manager.
-
-        org.freedesktop.FileManager1.ShowItems would also select the file, but it goes
-        to whichever file manager owns that bus name, and without an activation token
-        Mutter stacks the new window behind the current one, so nothing seems to happen.
-        """
-        folder = Gio.File.new_for_path(path).get_parent()
-        Gio.AppInfo.launch_default_for_uri(folder.get_uri(), context)
 
     def _search_files(self, query: str, generation: int) -> None:
         # --basename: match the file name only; the whole path would surface
@@ -525,18 +552,10 @@ class SpotWindow(Gtk.ApplicationWindow):
 
         files: list[Result] = []
         for path in candidates:
-            try:
-                is_dir = stat.S_ISDIR(os.stat(path).st_mode)
-            except OSError:
-                continue  # stale index entry
-            name = os.path.basename(path)
-            content_type = "inode/directory" if is_dir else Gio.content_type_guess(name, None)[0]
-            files.append(Result(fuzzy_score(query, name), name,
-                                path.replace(HOME, "~", 1), _("Folder") if is_dir else _("File"),
-                                Gio.content_type_get_icon(content_type),
-                                partial(self._open_path, path), partial(self._reveal_path, path)))
-            if len(files) >= MAX_FILES:
-                break
+            if result := file_result(path, fuzzy_score(query, os.path.basename(path))):
+                files.append(result)
+                if len(files) >= MAX_FILES:
+                    break
         self._sections["files"] = files
         self._render()
 

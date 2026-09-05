@@ -33,6 +33,17 @@ def test_system_results():
     assert spot.system_results("zzz") == []
 
 
+def test_file_result():
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        open(f"{d}/notes.md", "w").close()
+        f, folder = spot.file_result(f"{d}/notes.md", 7), spot.file_result(d, 0)
+        assert (f.kind, f.title, f.score, f.path) == (spot._("File"), "notes.md", 7, f"{d}/notes.md")
+        assert folder.kind == spot._("Folder")
+        assert f.alt_activate is not None and folder.alt_activate is not None
+    assert spot.file_result(f"{d}/notes.md", 0) is None  # gone with the temporary directory
+
+
 def test_is_wanted_path():
     home = spot.HOME
     assert spot.is_wanted_path(f"{home}/Documents/notes.md")
@@ -78,6 +89,7 @@ if __name__ == "__main__":
     test_app_score()
     test_command_result()
     test_system_results()
+    test_file_result()
     test_is_wanted_path()
     test_translations_cover_source_strings()
     test_usage_counts_persist()
