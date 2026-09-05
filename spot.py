@@ -374,16 +374,16 @@ class SpotWindow(Gtk.ApplicationWindow):
 
     def _on_active_changed(self, *_args) -> None:
         if not self.is_active():  # focus lost: get out of the way
-            self._dismiss()
+            self.dismiss()
 
-    def _dismiss(self) -> None:
+    def dismiss(self) -> None:
         self.set_visible(False)
 
     # -- keyboard --------------------------------------------------------
 
     def _on_key(self, _controller, keyval, _code, state) -> bool:
         if keyval == Gdk.KEY_Escape:
-            self._dismiss()
+            self.dismiss()
             return True
         if keyval in (Gdk.KEY_Return, Gdk.KEY_KP_Enter) and state & Gdk.ModifierType.CONTROL_MASK:
             self._activate_selected(alt=True)
@@ -587,7 +587,7 @@ class SpotWindow(Gtk.ApplicationWindow):
             action(self.get_display().get_app_launch_context())
         except GLib.Error as error:
             print("spot: " + _("Launch failed: %s") % error.message, file=sys.stderr)
-        self._dismiss()
+        self.dismiss()
 
 
 class SpotApp(Adw.Application):
@@ -666,7 +666,10 @@ class SpotApp(Adw.Application):
     def do_activate(self) -> None:
         if self.window is None:
             self.window = SpotWindow(self)
-        self.window.present_fresh()
+        if self.window.is_active():  # the shortcut pressed while open: close
+            self.window.dismiss()
+        else:
+            self.window.present_fresh()
 
 
 def main() -> int:

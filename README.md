@@ -21,7 +21,7 @@ The interface follows the system language (English, French; add yours in `po/`).
 
 | Key | Action |
 |---|---|
-| `Super + Space` | open |
+| `Super + Space` | open, or close when already open |
 | `↑` `↓` | navigate |
 | `Enter` | launch or open |
 | `Ctrl + Enter` | reveal the file in the file manager |
