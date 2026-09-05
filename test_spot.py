@@ -28,6 +28,11 @@ def test_command_result():
     assert spot.command_result("") is None
 
 
+def test_system_results():
+    assert [r.title for r in spot.system_results("lock")] == [spot._("Lock screen")]
+    assert spot.system_results("zzz") == []
+
+
 def test_is_wanted_path():
     home = spot.HOME
     assert spot.is_wanted_path(f"{home}/Documents/notes.md")
@@ -72,6 +77,7 @@ if __name__ == "__main__":
     test_fuzzy_score()
     test_app_score()
     test_command_result()
+    test_system_results()
     test_is_wanted_path()
     test_translations_cover_source_strings()
     test_usage_counts_persist()

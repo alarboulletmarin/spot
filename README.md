@@ -10,6 +10,7 @@ Meant to be what Raycast is on macOS: a window that opens on a shortcut, filters
 - **Files** — `plocate` queried asynchronously on each keystroke (90 ms debounce, from 3 characters), matched on the file name only, limited to your home directory, hidden entries and `node_modules` skipped.
 - **Everything the Activities overview finds** — calculator results, Settings panels, Nautilus files: spot queries the same GNOME Shell search providers over D-Bus, and honours what you enabled in Settings → Search.
 - **Commands** — when nothing matches and the first word is a program on your `PATH`, Enter runs the line as a command (in the background, no terminal).
+- **System** — lock screen, suspend, log out, restart, shut down, over D-Bus; the last three go through GNOME's confirmation dialog.
 - **Resident** — the first invocation stays in the background; every later `spot` only asks it over D-Bus to show its window. That call goes through `gdbus` before Python loads GTK, so it takes about 30 ms instead of 200 ms.
 
 Ranking is a subsequence score: a literal match always wins, word starts get a bonus, shorter paths break ties. Applications you launch often get a bonus (counts in `~/.local/share/spot/usage.json`).

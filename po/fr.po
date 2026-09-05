@@ -37,3 +37,21 @@ msgstr "S'exécute en arrière-plan, sans terminal"
 
 msgid "Command"
 msgstr "Commande"
+
+msgid "Lock screen"
+msgstr "Verrouiller l'écran"
+
+msgid "Suspend"
+msgstr "Mettre en veille"
+
+msgid "Log out"
+msgstr "Se déconnecter"
+
+msgid "Restart"
+msgstr "Redémarrer"
+
+msgid "Shut down"
+msgstr "Éteindre"
+
+msgid "System"
+msgstr "Système"

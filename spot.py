@@ -104,6 +104,21 @@ window.spot { background-color: transparent; }
 .spot-kind { font-size: 0.72rem; opacity: 0.45; }
 """
 
+SESSION, SYSTEM = Gio.BusType.SESSION, Gio.BusType.SYSTEM
+SYSTEM_COMMANDS = (  # label, icon, bus, name, object path, interface, method, arguments
+    (_("Lock screen"), "system-lock-screen-symbolic", SESSION, "org.gnome.ScreenSaver",
+     "/org/gnome/ScreenSaver", "org.gnome.ScreenSaver", "Lock", None),
+    (_("Suspend"), "system-suspend-symbolic", SYSTEM, "org.freedesktop.login1",
+     "/org/freedesktop/login1", "org.freedesktop.login1.Manager", "Suspend",
+     GLib.Variant("(b)", (True,))),
+    (_("Log out"), "system-log-out-symbolic", SESSION, "org.gnome.SessionManager",
+     "/org/gnome/SessionManager", "org.gnome.SessionManager", "Logout", GLib.Variant("(u)", (0,))),
+    (_("Restart"), "system-reboot-symbolic", SESSION, "org.gnome.SessionManager",
+     "/org/gnome/SessionManager", "org.gnome.SessionManager", "Reboot", None),
+    (_("Shut down"), "system-shutdown-symbolic", SESSION, "org.gnome.SessionManager",
+     "/org/gnome/SessionManager", "org.gnome.SessionManager", "Shutdown", None),
+)
+
 
 @dataclass(slots=True)
 class Result:
@@ -181,6 +196,26 @@ class Usage:
     def bonus(self, key: str) -> int:
         # ponytail: plain counts, add time decay if old habits stick around too long
         return 10 * min(self.counts.get(key, 0), 10)
+
+
+def on_dbus_reply(bus, res, _data=None) -> None:
+    try:
+        bus.call_finish(res)
+    except GLib.Error as error:
+        print("spot: " + _("Launch failed: %s") % error.message, file=sys.stderr)
+
+
+def dbus_call(bus_type, name, path, interface, method, args, _context=None) -> None:
+    Gio.bus_get_sync(bus_type).call(name, path, interface, method, args, None,
+                                    Gio.DBusCallFlags.NONE, -1, None, on_dbus_reply)
+
+
+def system_results(query: str) -> list[Result]:
+    """Lock, suspend, log out…: literal matches only, the labels are short."""
+    q = query.lower()
+    return [Result(fuzzy_score(query, label), label, "", _("System"), Gio.ThemedIcon.new(icon),
+                   partial(dbus_call, *call))
+            for label, icon, *call in SYSTEM_COMMANDS if q in label.lower()]
 
 
 def run_command(command: str, context: Gdk.AppLaunchContext) -> None:
@@ -432,6 +467,7 @@ class SpotWindow(Gtk.ApplicationWindow):
                 icon = info.get_icon() or Gio.ThemedIcon.new("application-x-executable")
                 results.append(Result(score, name, info.get_description() or "",
                                       _("Application"), icon, partial(self._launch_app, info)))
+        results.extend(system_results(query))
         results.sort(key=lambda r: -r.score)
         return results
 
@@ -452,14 +488,7 @@ class SpotWindow(Gtk.ApplicationWindow):
         self._app.get_dbus_connection().call(
             "org.freedesktop.FileManager1", "/org/freedesktop/FileManager1",
             "org.freedesktop.FileManager1", "ShowItems", GLib.Variant("(ass)", ([uri], "")),
-            None, Gio.DBusCallFlags.NONE, -1, None, self._on_dbus_reply)
-
-    @staticmethod
-    def _on_dbus_reply(bus, res, _data=None) -> None:
-        try:
-            bus.call_finish(res)
-        except GLib.Error as error:
-            print("spot: " + _("Launch failed: %s") % error.message, file=sys.stderr)
+            None, Gio.DBusCallFlags.NONE, -1, None, on_dbus_reply)
 
     def _search_files(self, query: str, generation: int) -> None:
         # --basename: match the file name only; the whole path would surface
