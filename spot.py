@@ -18,7 +18,7 @@ import sys
 
 APP_ID = "dev.andrea.Spot"
 OBJECT_PATH = "/dev/andrea/Spot"
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 
 
 def wake_resident_instance() -> bool:

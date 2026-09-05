@@ -2,7 +2,7 @@
 # This file is distributed under the same license as the spot package.
 msgid ""
 msgstr ""
-"Project-Id-Version: spot 0.2.0\n"
+"Project-Id-Version: spot 0.3.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alarboulletmarin/spot/issues\n"
 "PO-Revision-Date: 2026-09-04 22:00+0200\n"
 "Last-Translator: Andrea Larboullet Marin <a.larboulletmarin@gmail.com>\n"
