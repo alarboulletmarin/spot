@@ -37,7 +37,7 @@ Linux only. The three building blocks are Linux-specific: applications come from
 |---|---|
 | GNOME, Wayland or X11 | first-class, this is what it is built and tested on |
 | Any other GTK4 desktop (KDE Plasma, Hyprland, Sway…) | works, with the Adwaita look and a plain floating window; set the shortcut and a centering rule in your compositor |
-| Arch Linux | packaged, see below |
+| Arch Linux | `makepkg` from a checkout, see below; not on the AUR yet |
 | Fedora 40+, Ubuntu 24.04+, Debian 13+, openSUSE Tumbleweed | `make install` from a checkout |
 | Debian 12 and older | no, GTK is older than 4.12 |
 
@@ -45,10 +45,12 @@ Requirements: Python 3.10+, PyGObject, GTK 4.12+, libadwaita 1, GLib (`gdbus`), 
 
 ## Installation
 
-Arch Linux, from the AUR:
+Arch Linux: the PKGBUILD builds the latest tagged release and installs it as the `spot-launcher` package, which pacman then tracks like any other. It is not on the AUR yet.
 
 ```bash
-paru -S spot-launcher   # or yay
+git clone https://github.com/alarboulletmarin/spot.git
+cd spot
+makepkg -si
 ```
 
 Any other distribution, from a checkout (needs `gettext` for `msgfmt`):
@@ -67,7 +69,7 @@ Under Wayland a window cannot position itself; Mutter places it. To get it cente
 gsettings set org.gnome.mutter center-new-windows true
 ```
 
-After upgrading, restart the resident process: `spot --quit && spot --daemon &`.
+To upgrade, run the same commands again (`git pull` first on Arch), then restart the resident process: `spot --quit && spot --daemon &`.
 
 ## Development
 
