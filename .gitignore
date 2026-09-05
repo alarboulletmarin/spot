@@ -1,6 +1,14 @@
-# makepkg artifacts
+# makepkg: build tree, downloaded sources, packages, logs
 /pkg/
 /src/
-/*.pkg.tar.zst
 /*.tar.gz
+/*.pkg.tar.*
+/*.src.tar.*
+/*.log
+
+# Python
 __pycache__/
+.pytest_cache/
+
+# gettext: compiled catalogs are produced at install time
+*.mo
