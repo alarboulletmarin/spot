@@ -482,13 +482,16 @@ class SpotWindow(Gtk.ApplicationWindow):
     def _open_path(path: str, context: Gdk.AppLaunchContext) -> None:
         Gio.AppInfo.launch_default_for_uri(Gio.File.new_for_path(path).get_uri(), context)
 
-    def _reveal_path(self, path: str, _context) -> None:
-        """Select the file in the file manager (org.freedesktop.FileManager1, Nautilus and others)."""
-        uri = Gio.File.new_for_path(path).get_uri()
-        self._app.get_dbus_connection().call(
-            "org.freedesktop.FileManager1", "/org/freedesktop/FileManager1",
-            "org.freedesktop.FileManager1", "ShowItems", GLib.Variant("(ass)", ([uri], "")),
-            None, Gio.DBusCallFlags.NONE, -1, None, on_dbus_reply)
+    @staticmethod
+    def _reveal_path(path: str, context: Gdk.AppLaunchContext) -> None:
+        """Open the containing folder in the user's file manager.
+
+        org.freedesktop.FileManager1.ShowItems would also select the file, but it goes
+        to whichever file manager owns that bus name, and without an activation token
+        Mutter stacks the new window behind the current one, so nothing seems to happen.
+        """
+        folder = Gio.File.new_for_path(path).get_parent()
+        Gio.AppInfo.launch_default_for_uri(folder.get_uri(), context)
 
     def _search_files(self, query: str, generation: int) -> None:
         # --basename: match the file name only; the whole path would surface
