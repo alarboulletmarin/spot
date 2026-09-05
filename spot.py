@@ -107,7 +107,7 @@ window.spot { background-color: transparent; }
 
 @dataclass(slots=True)
 class Result:
-    """One result row. `activate` launches it."""
+    """One result row. `activate` launches it; `alt_activate` is the Ctrl+Enter action."""
 
     score: int
     title: str
@@ -115,6 +115,7 @@ class Result:
     kind: str
     gicon: Gio.Icon
     activate: Callable[[Gdk.AppLaunchContext], None]
+    alt_activate: Callable[[Gdk.AppLaunchContext], None] | None = None
 
 
 def fuzzy_score(query: str, text: str) -> int:
@@ -345,9 +346,12 @@ class SpotWindow(Gtk.ApplicationWindow):
 
     # -- keyboard --------------------------------------------------------
 
-    def _on_key(self, _controller, keyval, _code, _state) -> bool:
+    def _on_key(self, _controller, keyval, _code, state) -> bool:
         if keyval == Gdk.KEY_Escape:
             self._dismiss()
+            return True
+        if keyval in (Gdk.KEY_Return, Gdk.KEY_KP_Enter) and state & Gdk.ModifierType.CONTROL_MASK:
+            self._activate_selected(alt=True)
             return True
         if keyval in (Gdk.KEY_Down, Gdk.KEY_Up):
             self._move(1 if keyval == Gdk.KEY_Down else -1)
@@ -442,6 +446,21 @@ class SpotWindow(Gtk.ApplicationWindow):
     def _open_path(path: str, context: Gdk.AppLaunchContext) -> None:
         Gio.AppInfo.launch_default_for_uri(Gio.File.new_for_path(path).get_uri(), context)
 
+    def _reveal_path(self, path: str, _context) -> None:
+        """Select the file in the file manager (org.freedesktop.FileManager1, Nautilus and others)."""
+        uri = Gio.File.new_for_path(path).get_uri()
+        self._app.get_dbus_connection().call(
+            "org.freedesktop.FileManager1", "/org/freedesktop/FileManager1",
+            "org.freedesktop.FileManager1", "ShowItems", GLib.Variant("(ass)", ([uri], "")),
+            None, Gio.DBusCallFlags.NONE, -1, None, self._on_dbus_reply)
+
+    @staticmethod
+    def _on_dbus_reply(bus, res, _data=None) -> None:
+        try:
+            bus.call_finish(res)
+        except GLib.Error as error:
+            print("spot: " + _("Launch failed: %s") % error.message, file=sys.stderr)
+
     def _search_files(self, query: str, generation: int) -> None:
         # --basename: match the file name only; the whole path would surface
         # every file under a matching directory. No --limit: plocate lists
@@ -483,7 +502,7 @@ class SpotWindow(Gtk.ApplicationWindow):
             files.append(Result(fuzzy_score(query, name), name,
                                 path.replace(HOME, "~", 1), _("Folder") if is_dir else _("File"),
                                 Gio.content_type_get_icon(content_type),
-                                partial(self._open_path, path)))
+                                partial(self._open_path, path), partial(self._reveal_path, path)))
             if len(files) >= MAX_FILES:
                 break
         self._sections["files"] = files
@@ -525,15 +544,18 @@ class SpotWindow(Gtk.ApplicationWindow):
 
     # -- launching -------------------------------------------------------
 
-    def _activate_selected(self) -> None:
-        self._activate_row(self.list.get_selected_row())
+    def _activate_selected(self, alt: bool = False) -> None:
+        self._activate_row(self.list.get_selected_row(), alt)
 
-    def _activate_row(self, row: Gtk.ListBoxRow | None) -> None:
+    def _activate_row(self, row: Gtk.ListBoxRow | None, alt: bool = False) -> None:
         if row is None or row.get_index() >= len(self._results):
             return
         item = self._results[row.get_index()]
+        action = item.alt_activate if alt else item.activate
+        if action is None:
+            return
         try:
-            item.activate(self.get_display().get_app_launch_context())
+            action(self.get_display().get_app_launch_context())
         except GLib.Error as error:
             print("spot: " + _("Launch failed: %s") % error.message, file=sys.stderr)
         self._dismiss()
