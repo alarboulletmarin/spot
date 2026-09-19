@@ -1,7 +1,7 @@
 # Maintainer: Andrea Larboullet Marin <a.larboulletmarin@gmail.com>
 pkgname=spot-launcher
 _name=spot
-pkgver=0.3.0
+pkgver=0.3.1
 pkgrel=1
 pkgdesc="Application and file launcher for GNOME"
 arch=('any')
