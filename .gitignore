@@ -12,3 +12,6 @@ __pycache__/
 
 # gettext: compiled catalogs are produced at install time
 *.mo
+
+# Rust
+/target/

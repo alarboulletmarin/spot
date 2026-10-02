@@ -24,11 +24,11 @@ msgstr "Dossier"
 msgid "File"
 msgstr "Fichier"
 
-#, python-format
+#, c-format
 msgid "Launch failed: %s"
 msgstr "Échec du lancement : %s"
 
-#, python-format
+#, c-format
 msgid "Run “%s”"
 msgstr "Exécuter « %s »"
 

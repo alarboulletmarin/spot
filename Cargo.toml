@@ -1,0 +1,30 @@
+[package]
+name = "spot"
+version = "0.3.1"
+edition = "2024"
+description = "Application and file launcher for GNOME"
+license = "MIT"
+
+# Not src/: makepkg uses ./src as its build tree and `makepkg -C` wipes it.
+# `spot` only wakes the resident instance (GIO, no GTK): linking GTK alone costs ~20 ms at exec.
+# `spot-resident` is the GTK application it falls back to.
+[[bin]]
+name = "spot"
+path = "app/spot.rs"
+
+[[bin]]
+name = "spot-resident"
+path = "app/main.rs"
+
+[dependencies]
+gtk = { package = "gtk4", version = "0.11", features = ["v4_12"] }
+adw = { package = "libadwaita", version = "0.9" }
+serde_json = "1"
+gio-unix = "0.22"
+gio = "0.22"
+
+[profile.release]
+lto = true
+strip = true
+opt-level = 3
+codegen-units = 1

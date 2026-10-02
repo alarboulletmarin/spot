@@ -1,6 +1,6 @@
 # spot
 
-Application and file launcher for GNOME, in Python + GTK4 / libadwaita.
+Application and file launcher for GNOME, in Rust + GTK4 / libadwaita (gtk4-rs).
 
 Meant to be what Raycast is on macOS: a window that opens on a shortcut, filters as you type, and disappears as soon as you launch something.
 
@@ -11,7 +11,7 @@ Meant to be what Raycast is on macOS: a window that opens on a shortcut, filters
 - **Everything the Activities overview finds** — calculator results, Settings panels, Nautilus files: spot queries the same GNOME Shell search providers over D-Bus, and honours what you enabled in Settings → Search.
 - **Commands** — when nothing matches and the first word is a program on your `PATH`, Enter runs the line as a command (in the background, no terminal).
 - **System** — lock screen, suspend, log out, restart, shut down, over D-Bus; the last three go through GNOME's confirmation dialog.
-- **Resident** — the first invocation stays in the background; every later `spot` only asks it over D-Bus to show its window. That call goes through `gdbus` before Python loads GTK, so it takes about 30 ms instead of 200 ms.
+- **Resident** — the first invocation stays in the background, with its window already created; every later `spot` is a small GIO-only binary that asks it over D-Bus to show that window, without loading GTK. On the author's machine that call takes about 10 ms (median), and the very first opening after login is as fast as the next ones (the window is built at startup instead of on first use, which used to cost ~1.9 s).
 
 Ranking is a subsequence score: a literal match always wins, word starts get a bonus, shorter paths break ties. Applications you launch often get a bonus (counts in `~/.local/share/spot/usage.json`).
 
@@ -41,11 +41,11 @@ Linux only. The three building blocks are Linux-specific: applications come from
 | Fedora 40+, Ubuntu 24.04+, Debian 13+, openSUSE Tumbleweed | `make install` from a checkout |
 | Debian 12 and older | no, GTK is older than 4.12 |
 
-Requirements: Python 3.10+, PyGObject, GTK 4.12+, libadwaita 1, GLib (`gdbus`), and `plocate` for file search.
+Requirements: GTK 4.12+, libadwaita 1, GLib, and `plocate` for file search. Building needs Rust (`cargo`).
 
 ## Installation
 
-Arch Linux: the PKGBUILD builds the latest tagged release and installs it as the `spot-launcher` package, which pacman then tracks like any other. It is not on the AUR yet.
+Arch Linux: the PKGBUILD compiles the latest tagged release and installs it as the `spot-launcher` package, which pacman then tracks like any other. It is not on the AUR yet.
 
 ```bash
 git clone https://github.com/alarboulletmarin/spot.git
@@ -53,9 +53,10 @@ cd spot
 makepkg -si
 ```
 
-Any other distribution, from a checkout (needs `gettext` for `msgfmt`):
+Any other distribution, from a checkout (needs `cargo`, the GTK 4 and libadwaita development files, and `gettext` for `msgfmt`):
 
 ```bash
+make                    # cargo build --release --locked
 sudo make install       # PREFIX=/usr/local by default
 ```
 
@@ -74,8 +75,10 @@ To upgrade, run the same commands again (`git pull` first on Arch), then restart
 ## Development
 
 ```bash
-spot --quit; ./spot.py --daemon &   # run the checkout as the resident instance
-make test                           # unit tests + translation files
+spot --quit; cargo run --release --bin spot-resident -- --daemon &   # run the checkout as the resident instance
+make test                           # cargo test + translation files
+
+SPOT_APP_ID=dev.andrea.SpotDev ...  # run next to the installed one (both `spot` and `spot-resident` read it)
 ```
 
 A checkout runs in English: translations are compiled at install time. To add a language, copy `po/spot.pot` to `po/<lang>.po` and fill in the `msgstr` lines.

@@ -32,14 +32,14 @@ msgstr ""
 msgid "Shut down"
 msgstr ""
 
-#, python-format
+#, c-format
 msgid "Launch failed: %s"
 msgstr ""
 
 msgid "System"
 msgstr ""
 
-#, python-format
+#, c-format
 msgid "Run “%s”"
 msgstr ""
 
