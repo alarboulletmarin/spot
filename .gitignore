@@ -6,9 +6,6 @@
 /*.src.tar.*
 /*.log
 
-# Python
-__pycache__/
-.pytest_cache/
 
 # gettext: compiled catalogs are produced at install time
 *.mo
