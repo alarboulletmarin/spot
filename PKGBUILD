@@ -11,7 +11,7 @@ depends=('gtk4' 'libadwaita' 'glib2')
 makedepends=('cargo')
 optdepends=('plocate: indexed file search')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('6286d02dbab4a1e245d896d1447002256318eee2d4d387641bfd2a4e44781e86')
+sha256sums=('3800e175b28bde39caf38cddcca15cdd62756725390ec6c8f1f47c8c4379d902')
 
 prepare() {
     cd "$_name-$pkgver"
