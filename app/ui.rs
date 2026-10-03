@@ -3,6 +3,7 @@
 use crate::providers::{self, SearchProvider};
 use crate::results::{Hit, command_result, file_result, report_launch_error, system_results};
 use crate::search::*;
+use crate::style::{CARD_WIDTH, SHADOW};
 use crate::tr;
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib, pango};
@@ -12,27 +13,6 @@ use std::rc::Rc;
 use std::time::Duration;
 
 const DEBOUNCE: Duration = Duration::from_millis(90);
-
-pub const CSS: &str = "
-window.spot { background-color: transparent; }
-.spot-card {
-    background-color: @window_bg_color;
-    border-radius: 16px;
-    border: 1px solid alpha(currentColor, 0.13);
-}
-.spot-entry {
-    font-size: 1.35rem;
-    padding: 16px 18px;
-    background: none;
-    border: none;
-    box-shadow: none;
-    min-height: 0;
-}
-.spot-sep { background-color: alpha(currentColor, 0.10); min-height: 1px; }
-.spot-row { padding: 7px 10px; border-radius: 9px; }
-.spot-sub { font-size: 0.82rem; opacity: 0.55; }
-.spot-kind { font-size: 0.72rem; opacity: 0.45; }
-";
 
 /// An application, with everything matching needs read once instead of on every keystroke.
 struct AppEntry {
@@ -117,19 +97,35 @@ impl Ui {
             .application(app)
             .decorated(false)
             .resizable(false)
-            .default_width(720)
+            .default_width(CARD_WIDTH + 2 * SHADOW)
             .css_classes(["spot"])
             .build();
 
-        let card = gtk::Box::new(gtk::Orientation::Vertical, 0);
-        card.add_css_class("spot-card");
+        // the margin is transparent room for the card's drop shadow
+        let card = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .margin_top(SHADOW)
+            .margin_bottom(SHADOW)
+            .margin_start(SHADOW)
+            .margin_end(SHADOW)
+            .css_classes(["spot-card"])
+            .build();
         win.set_child(Some(&card));
 
         let entry = gtk::Entry::builder()
             .placeholder_text(tr("Search applications and files…"))
+            .hexpand(true)
             .css_classes(["spot-entry"])
             .build();
-        card.append(&entry);
+        let search = gtk::Box::builder().css_classes(["spot-search"]).build();
+        search.append(
+            &gtk::Image::builder()
+                .icon_name("system-search-symbolic")
+                .css_classes(["spot-search-icon"])
+                .build(),
+        );
+        search.append(&entry);
+        card.append(&search);
 
         let sep = gtk::Box::builder()
             .visible(false)
@@ -139,9 +135,7 @@ impl Ui {
 
         let list = gtk::ListBox::builder()
             .selection_mode(gtk::SelectionMode::Browse)
-            .margin_start(8)
-            .margin_end(8)
-            .margin_bottom(8)
+            .css_classes(["spot-list"])
             .build();
         let scroller = gtk::ScrolledWindow::builder()
             .visible(false)
@@ -460,13 +454,16 @@ fn label(text: &str, css: Option<&str>) -> gtk::Label {
 
 fn row_for(hit: &Hit) -> gtk::ListBoxRow {
     let row_box = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-    row_box.append(&gtk::Image::from_gicon(&hit.icon));
+    let icon = gtk::Image::from_gicon(&hit.icon);
+    icon.add_css_class("spot-icon");
+    row_box.append(&icon);
 
     let texts = gtk::Box::builder()
         .orientation(gtk::Orientation::Vertical)
         .hexpand(true)
+        .valign(gtk::Align::Center)
         .build();
-    texts.append(&label(&hit.title, None));
+    texts.append(&label(&hit.title, Some("spot-title")));
     if !hit.subtitle.is_empty() {
         texts.append(&label(&hit.subtitle, Some("spot-sub")));
     }
@@ -474,6 +471,7 @@ fn row_for(hit: &Hit) -> gtk::ListBoxRow {
 
     let kind = gtk::Label::new(Some(&hit.kind));
     kind.add_css_class("spot-kind");
+    kind.set_valign(gtk::Align::Center);
     row_box.append(&kind);
 
     gtk::ListBoxRow::builder()

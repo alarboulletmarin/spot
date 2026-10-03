@@ -11,10 +11,11 @@
 mod providers;
 mod results;
 mod search;
+mod style;
 mod ui;
 
 use gtk::prelude::*;
-use gtk::{gdk, gio, glib};
+use gtk::{gio, glib};
 use std::cell::OnceCell;
 use std::ffi::{CString, c_char};
 use std::rc::Rc;
@@ -63,13 +64,6 @@ fn main() -> glib::ExitCode {
     let w = window.clone();
     app.connect_startup(move |app| {
         std::mem::forget(app.hold()); // stay resident: dismissing only hides the window
-        let provider = gtk::CssProvider::new();
-        provider.load_from_string(ui::CSS);
-        gtk::style_context_add_provider_for_display(
-            &gdk::Display::default().expect("no display"),
-            &provider,
-            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
-        );
         let data = ui::AppData::new(app.dbus_connection());
         let monitor = gio::AppInfoMonitor::get();
         let d = data.clone();
@@ -77,6 +71,7 @@ fn main() -> glib::ExitCode {
         std::mem::forget(monitor); // keep a reference or the signal is lost
 
         let ui = ui::Ui::new(app, data);
+        style::install(&ui.win);
         // Creating the window (and with it the GSK renderer) on the first show cost ~1.9 s
         // after login; doing it here, unmapped, makes the first show as fast as the rest.
         WidgetExt::realize(&ui.win);
