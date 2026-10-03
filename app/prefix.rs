@@ -50,6 +50,18 @@ pub fn hits(query: &str) -> Option<Vec<Hit>> {
     })
 }
 
+/// The last resort when nothing matched: search the web for the whole query, with the engine
+/// of `search:`.
+pub fn web_fallback(query: &str) -> Option<Hit> {
+    fallback_hit(query, &engines())
+}
+
+fn fallback_hit(query: &str, engines: &[Engine]) -> Option<Hit> {
+    let query = query.trim();
+    let engine = engines.iter().find(|e| e.keyword == "search")?;
+    (!query.is_empty()).then(|| web_hit(&engine.address, query))
+}
+
 /// `engines` is only called for a `keyword:` query, so that a plain search never reads the file.
 fn parse(query: &str, engines: impl FnOnce() -> Vec<Engine>) -> Option<Intent> {
     let query = query.trim();
@@ -506,6 +518,26 @@ mod tests {
             .collect();
         assert_eq!(keywords, ["ok"]);
         assert!(config_engines(&keyfile("[Appearance]\nStyle=glass\n")).is_empty());
+    }
+
+    #[test]
+    fn the_fallback_uses_the_engine_of_search() {
+        let host =
+            |engines: &[Engine]| fallback_hit(" rust gtk ", engines).map(|h| (h.title, h.subtitle));
+        assert_eq!(
+            host(&built_in()),
+            Some((
+                tr("Search for “%s”").replacen("%s", "rust gtk", 1),
+                "duckduckgo.com".into()
+            ))
+        );
+        let mut engines = config_engines(&keyfile(
+            "[Search]\nsearch=https://www.startpage.com/do/search?q=%s\n",
+        ));
+        engines.extend(built_in());
+        assert_eq!(host(&engines).unwrap().1, "startpage.com");
+        assert!(fallback_hit("  ", &built_in()).is_none());
+        assert!(fallback_hit("x", &[]).is_none());
     }
 
     #[test]

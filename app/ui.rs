@@ -14,6 +14,9 @@ use std::rc::Rc;
 use std::time::Duration;
 
 const DEBOUNCE: Duration = Duration::from_millis(90);
+/// How long the sources get before "search the web" is offered. Earlier, it would flash up for
+/// every query and vanish when the first application, provider or file answers.
+const FALLBACK_DELAY: Duration = Duration::from_millis(300);
 
 /// An application, with everything matching needs read once instead of on every keystroke.
 struct AppEntry {
@@ -87,6 +90,7 @@ pub struct Ui {
     sections: RefCell<HashMap<String, Vec<Rc<Hit>>>>, // per source, merged by render()
     query: RefCell<String>,
     generation: Cell<u32>,
+    settled: Cell<bool>, // FALLBACK_DELAY has passed for the current query
     cancellable: RefCell<gio::Cancellable>,
     debounce: RefCell<Option<glib::SourceId>>,
     file_proc: RefCell<Option<gio::Subprocess>>,
@@ -158,6 +162,7 @@ impl Ui {
             sections: RefCell::default(),
             query: RefCell::default(),
             generation: Cell::new(0),
+            settled: Cell::new(false),
             cancellable: RefCell::new(gio::Cancellable::new()),
             debounce: RefCell::default(),
             file_proc: RefCell::default(),
@@ -252,6 +257,7 @@ impl Ui {
         self.debounce.take(); // fired: its id is gone, removing it later would be an error
         let generation = self.generation.get().wrapping_add(1);
         self.generation.set(generation);
+        self.settled.set(false);
         // a newer keystroke supersedes everything in flight
         self.cancellable.replace(gio::Cancellable::new()).cancel();
         if let Some(proc) = self.file_proc.take() {
@@ -270,6 +276,13 @@ impl Ui {
             self.sections.borrow_mut().insert("prefix".into(), hits);
             return self.render();
         }
+        let ui = self.clone();
+        glib::timeout_add_local_once(FALLBACK_DELAY, move || {
+            if ui.generation.get() == generation {
+                ui.settled.set(true);
+                ui.render();
+            }
+        });
         let apps: Vec<_> = self
             .search_apps(&query)
             .into_iter()
@@ -317,7 +330,11 @@ impl Ui {
             results.push(hit.clone());
         }
         if results.is_empty() && !sections.contains_key("prefix") {
-            results.extend(command_result(&self.query.borrow()).map(Rc::new));
+            let query = self.query.borrow();
+            results.extend(command_result(&query).map(Rc::new));
+            if self.settled.get() {
+                results.extend(prefix::web_fallback(&query).map(Rc::new));
+            }
         }
         drop(sections);
         self.show_results(results);
