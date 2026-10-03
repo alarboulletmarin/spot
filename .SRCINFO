@@ -1,6 +1,6 @@
 pkgbase = spot-launcher
 	pkgdesc = Application and file launcher for GNOME
-	pkgver = 0.4.0
+	pkgver = 0.5.0
 	pkgrel = 1
 	url = https://github.com/alarboulletmarin/spot
 	arch = x86_64
@@ -11,7 +11,7 @@ pkgbase = spot-launcher
 	depends = libadwaita
 	depends = glib2
 	optdepends = plocate: indexed file search
-	source = spot-launcher-0.4.0.tar.gz::https://github.com/alarboulletmarin/spot/archive/refs/tags/v0.4.0.tar.gz
-	sha256sums = 3800e175b28bde39caf38cddcca15cdd62756725390ec6c8f1f47c8c4379d902
+	source = spot-launcher-0.5.0.tar.gz::https://github.com/alarboulletmarin/spot/archive/refs/tags/v0.5.0.tar.gz
+	sha256sums = 867c7a0462ee9fc00abe87b06c838541a4bc72c6bfe190cf8ae9072b394a3a49
 
 pkgname = spot-launcher
