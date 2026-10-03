@@ -83,3 +83,10 @@ msgstr ""
 
 msgid "no terminal found, set one in spot.conf"
 msgstr ""
+
+#, c-format
+msgid "With the search engine of %s"
+msgstr ""
+
+msgid "no web browser found"
+msgstr ""

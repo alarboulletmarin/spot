@@ -12,8 +12,8 @@ Application and file launcher for Linux, in Rust + GTK4 / libadwaita. Press a sh
 - **Files** in your home directory, found as you type.
 - **Everything the GNOME Activities overview finds**: calculator results, Settings panels, Nautilus files.
 - **Commands**: if nothing matches, Enter runs what you typed.
-- **Web search**: if nothing matches, a last row searches the web for what you typed.
-- **Prefixes**: `!htop` runs in a terminal, `search: rust` searches the web. See [Prefixes](#prefixes).
+- **Web search**: if nothing matches, a last row hands what you typed to your browser, which searches with its own engine.
+- **Prefixes**: `!htop` runs in a terminal, `search: rust` searches in your browser. See [Prefixes](#prefixes).
 - **System actions**: lock, suspend, log out, restart, shut down.
 - **Instant**: the first launch stays in the background; opening the window takes about 10 ms.
 - **Three styles**, light and dark, following the accent colour of your desktop. See [Appearance](#appearance).
@@ -130,33 +130,43 @@ The window also closes as soon as it loses focus.
 | `report` | files in your home directory whose name contains it (from 3 characters) |
 | `lock`, `shut` | the matching system action |
 | `notify-send hello` | when nothing matches and the first word is a program on your `PATH`: Enter runs the line in the background, without a terminal |
-| `zzzqq` | nothing matches: after a third of a second, a last row “Search for…” opens a web search in your browser. Below the command row, if there is one |
+| `zzzqq` | nothing matches: after a third of a second, a last row “Search for…” hands the text to your browser. Below the command row, if there is one |
 | `!git status` | a prefix: the command runs in a terminal, see [Prefixes](#prefixes) |
-| `search: rust gtk4` | a prefix: a web search in your browser |
+| `search: rust gtk4` | a prefix: your browser searches |
 
 ## Prefixes
 
-A prefix turns what you type into an instruction. While one is there, spot searches for nothing else.
+A prefix turns what you type into an instruction. While one is there, spot searches for nothing else. Spot chooses neither a browser nor a terminal nor a search engine: it uses the ones your system and you have set.
 
 | Type | Enter | Ctrl + Enter |
 |---|---|---|
 | `!git status` | runs the command in a terminal, which stays open afterwards | the same, but the terminal closes when the command ends |
-| `search: rust gtk4` | searches the web in your default browser | |
-| `g: …` `ddg: …` `yt: …` `gh: …` | the same on Google, DuckDuckGo, YouTube, GitHub | |
+| `search: rust gtk4` | your default browser searches for it, with its own search engine | |
+| `g: …` `ddg: …` `yt: …` `gh: …` | a search on that particular site (Google, DuckDuckGo, YouTube, GitHub), in your default browser | |
 | `https://example.com` or `www.example.com` | opens the address in your default browser | |
 
 The space after the colon is optional (`gh:alarboulletmarin/spot`), and so is the case.
 
 **Terminal commands.** `!` runs your shell (`$SHELL`) in your home directory, as an interactive shell, so your aliases and your `PATH` apply. The terminal is the first one found among: `xdg-terminal-exec`, `$TERMINAL`, the default terminal set in GNOME, `x-terminal-emulator`, then the usual ones (GNOME Terminal, Ptyxis, Console, Konsole, Xfce Terminal, Alacritty, kitty, foot, WezTerm, xterm…). The way each is told to run a program was checked on xterm, Xfce Terminal, Terminator, MATE Terminal, LXTerminal, Tilix and Console; for GNOME Terminal, kitty, Alacritty and foot it follows their documentation; Konsole, Ptyxis and WezTerm are untested.
 
-**Web searches.** `search:` uses DuckDuckGo, and so does the last row offered when nothing matches. Each keyword is a line in the `[Search]` group of `~/.config/spot/spot.conf`; the text you type replaces `%s`, and the address must start with `http://` or `https://`. A line in the file wins over the built-in keyword of the same name, so this is also how to point `search:` at another engine.
+**Web searches.** `search:`, and the last row offered when nothing matches, start your default browser (the one your system has for `https`: GNOME Settings → Default Apps, or `xdg-settings get default-web-browser`) and hand it the words. The browser searches with the search engine you set up in it; spot never picks one. Browsers are not all asked the same way:
+
+| Browser | Asked with |
+|---|---|
+| Firefox and its forks (LibreWolf, Floorp, Waterfox, IceCat, Zen), GNOME Web | `--search words` |
+| Chromium and its derivatives (Chrome, Chromium, Brave, Edge, Vivaldi) | an argument `? words`, which Chromium reads as a search |
+| any other | the words alone, and it does what it does with them |
+
+This comes from the sources of Firefox, Chromium and GNOME Web, where both forms are handled; the forks are assumed to keep them, and none of the real browsers was run.
+
+`g:`, `ddg:`, `yt:` and `gh:` are different: they search one particular site, through its address. Add your own as lines of the `[Search]` group of `~/.config/spot/spot.conf`: the text you type replaces `%s`, and the address must start with `http://` or `https://`. A line in the file wins over the built-in keyword of the same name. A line named `search` gives `search:` an address of its own instead of the browser's search.
 
 ```ini
 # Search: keyword=address
 # Terminal: the terminal for `!`, then the argument that introduces the program
 [Search]
-search=https://www.startpage.com/do/search?q=%s
 nix=https://search.nixos.org/packages?query=%s
+wiki=https://en.wikipedia.org/w/index.php?search=%s
 
 [Terminal]
 Command=alacritty -e
@@ -251,8 +261,8 @@ Requirements: GTK 4.12+, libadwaita 1, GLib, `plocate` for file search. Building
 - **Files**: `plocate` is queried asynchronously on each keystroke (90 ms debounce, from 3 characters), matched on the file name only. Entries that no longer exist are hidden.
 - **Search providers**: spot queries the GNOME Shell search providers over D-Bus, the same ones as the Activities overview, and honours what you enabled in Settings → Search.
 - **Commands**: when nothing matches and the first word is a program on your `PATH`, Enter runs the line.
-- **Web search**: when nothing matches, a “Search for…” row is added once the sources have had 300 ms to answer, so it does not flash up for every query. It uses the engine of `search:`.
-- **Prefixes**: checked before anything else; one that matches replaces the search. Web pages open with GIO's default handler for `https`; terminal commands are launched through a generated application entry, which is what gives the new window the focus.
+- **Web search**: when nothing matches, a “Search for…” row is added once the sources have had 300 ms to answer, so it does not flash up for every query. It does what `search:` does.
+- **Prefixes**: checked before anything else; one that matches replaces the search. Addresses and site searches open with GIO's default handler for `https`. `search:` runs the default browser's own command (the `Exec` line of its desktop entry) with the words added, and terminal commands are launched the same way, through a generated application entry, which is what gives the new window the focus.
 - **System actions**: over D-Bus; restart, shut down and log out go through GNOME's confirmation dialog.
 - **Resident process**: the first invocation stays in the background with its window already created. Every later `spot` is a small GIO-only binary that asks it over D-Bus to show that window, without loading GTK. On the author's machine that call takes about 10 ms (median), and the very first opening after login is as fast as the next ones (the window is built at startup instead of on first use, which used to cost ~1.9 s).
 

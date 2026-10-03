@@ -1,7 +1,8 @@
 //! Prefixes that turn the query into an action instead of a search:
 //!
 //! - `!ls -la` runs the command in a terminal;
-//! - `search: rust gtk` (or `g:`, `yt:`, `gh:`…) opens a web search in the default browser;
+//! - `search: rust gtk` hands the text to the default browser, which searches with its own engine;
+//! - `g:`, `yt:`, `gh:`… search one particular site, in the default browser;
 //! - an address (`https://…`, `www.…`) opens in the default browser.
 //!
 //! A prefix claims the whole query: while it is there, nothing else is searched.
@@ -20,9 +21,8 @@ struct Engine {
     address: String,
 }
 
-/// `search:` is the one `spot.conf` is most likely to change; the others are shortcuts.
-const BUILT_IN_ENGINES: [(&str, &str); 5] = [
-    ("search", "https://duckduckgo.com/?q=%s"),
+/// Shortcuts for one particular site. `search:` is not here: it is the browser's own search.
+const BUILT_IN_ENGINES: [(&str, &str); 4] = [
     ("ddg", "https://duckduckgo.com/?q=%s"),
     ("g", "https://www.google.com/search?q=%s"),
     ("yt", "https://www.youtube.com/results?search_query=%s"),
@@ -33,7 +33,12 @@ const BUILT_IN_ENGINES: [(&str, &str); 5] = [
 #[derive(Debug, PartialEq)]
 enum Intent {
     Terminal(String),
-    Web { address: String, text: String },
+    /// `search:`, handed to the browser as it is.
+    Search(String),
+    Web {
+        address: String,
+        text: String,
+    },
     Url(String),
 }
 
@@ -44,22 +49,30 @@ enum Intent {
 pub fn hits(query: &str) -> Option<Vec<Hit>> {
     Some(match parse(query, engines)? {
         Intent::Terminal(command) if !command.is_empty() => vec![terminal_hit(command)],
+        Intent::Search(text) if !text.is_empty() => vec![browser_search_hit(&text)],
         Intent::Web { address, text } if !text.is_empty() => vec![web_hit(&address, &text)],
         Intent::Url(url) => vec![url_hit(url)],
         _ => vec![],
     })
 }
 
-/// The last resort when nothing matched: search the web for the whole query, with the engine
-/// of `search:`.
+/// The last resort when nothing matched: let the browser search for the whole query, like
+/// `search:` does.
 pub fn web_fallback(query: &str) -> Option<Hit> {
-    fallback_hit(query, &engines())
+    let query = query.trim();
+    (!query.is_empty()).then(|| search_hit(query, &engines()))
 }
 
-fn fallback_hit(query: &str, engines: &[Engine]) -> Option<Hit> {
-    let query = query.trim();
-    let engine = engines.iter().find(|e| e.keyword == "search")?;
-    (!query.is_empty()).then(|| web_hit(&engine.address, query))
+/// What `search:` does: the browser's own search, unless `spot.conf` gives `search` an address
+/// of its own.
+fn search_hit(text: &str, engines: &[Engine]) -> Hit {
+    match engines
+        .iter()
+        .find(|e| e.keyword.eq_ignore_ascii_case("search"))
+    {
+        Some(engine) => web_hit(&engine.address, text),
+        None => browser_search_hit(text),
+    }
 }
 
 /// `engines` is only called for a `keyword:` query, so that a plain search never reads the file.
@@ -79,13 +92,18 @@ fn parse(query: &str, engines: impl FnOnce() -> Vec<Engine>) -> Option<Intent> {
     if !is_keyword {
         return None;
     }
+    let text = text.trim().to_owned();
     let engine = engines()
         .into_iter()
-        .find(|e| e.keyword.eq_ignore_ascii_case(keyword))?;
-    Some(Intent::Web {
-        address: engine.address,
-        text: text.trim().to_owned(),
-    })
+        .find(|e| e.keyword.eq_ignore_ascii_case(keyword));
+    match engine {
+        Some(engine) => Some(Intent::Web {
+            address: engine.address,
+            text,
+        }),
+        None if keyword.eq_ignore_ascii_case("search") => Some(Intent::Search(text)),
+        None => None,
+    }
 }
 
 /// An address typed in full: a scheme, or `www.` (opened as https). Not a bare `name.tld`:
@@ -181,6 +199,108 @@ fn web_hit(address: &str, text: &str) -> Hit {
     }
 }
 
+// -- the browser's own search -----------------------------------------------
+
+/// How a browser is handed words to search for, so that it uses its own search engine.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Terms {
+    /// `browser --search words`
+    Flag,
+    /// `browser "? words"`: Chromium reads an argument that starts with `? ` as a search.
+    Question,
+    /// `browser words`: all that is left to try for a browser spot does not know.
+    Plain,
+}
+
+/// Firefox and its forks, and GNOME Web, take `--search`.
+const FLAG_BROWSERS: [&str; 7] = [
+    "firefox",
+    "librewolf",
+    "floorp",
+    "waterfox",
+    "icecat",
+    "zen",
+    "epiphany",
+];
+const QUESTION_BROWSERS: [&str; 6] = ["chrome", "chromium", "brave", "edge", "msedge", "vivaldi"];
+
+/// Which way to hand words to a browser, from its application id and its `Exec` line
+/// (`org.mozilla.firefox`, `/usr/bin/google-chrome-stable %U`, a Flatpak command…).
+fn terms_for(id_and_exec: &str) -> Terms {
+    let lower = id_and_exec.to_ascii_lowercase();
+    let words: Vec<&str> = lower.split(|c: char| !c.is_ascii_alphanumeric()).collect();
+    let has = |names: &[&str]| names.iter().any(|name| words.contains(name));
+    if has(&FLAG_BROWSERS) {
+        Terms::Flag
+    } else if has(&QUESTION_BROWSERS) {
+        Terms::Question
+    } else {
+        Terms::Plain
+    }
+}
+
+/// The command that opens the browser on a search for `text`: its `Exec` line without the
+/// placeholders for files and addresses, and the words added the way `terms` says.
+fn search_argv(exec: &str, terms: Terms, text: &str) -> Option<Vec<String>> {
+    let mut argv: Vec<String> = glib::shell_parse_argv(exec)
+        .ok()?
+        .iter()
+        .map(|arg| arg.to_string_lossy().into_owned())
+        .filter(|arg| !is_placeholder(arg))
+        .map(|arg| arg.replace("%%", "%")) // a literal % in the Exec line
+        .collect();
+    if argv.is_empty() {
+        return None;
+    }
+    match terms {
+        Terms::Flag => argv.extend(["--search".to_owned(), text.to_owned()]),
+        Terms::Question => argv.push(format!("? {text}")),
+        Terms::Plain => argv.push(text.to_owned()),
+    }
+    Some(argv)
+}
+
+/// `%u`, `%F`… in an `Exec` line, and the markers Flatpak puts around them (`@@u %u @@`).
+fn is_placeholder(arg: &str) -> bool {
+    matches!(arg, "@@" | "@@u" | "@@l") || (arg.len() == 2 && arg.starts_with('%') && arg != "%%")
+}
+
+/// The default browser (the one the system and the user chose for `https`) searching for `text`
+/// with whatever search engine it has been set up with.
+fn browser_search_hit(text: &str) -> Hit {
+    let browser = gio::AppInfo::default_for_uri_scheme("https");
+    let argv = browser.as_ref().and_then(|browser| {
+        let exec = browser
+            .downcast_ref::<gio_unix::DesktopAppInfo>()?
+            .string("Exec")?;
+        let id = browser.id().unwrap_or_default();
+        search_argv(&exec, terms_for(&format!("{id} {exec}")), text)
+    });
+    let name = browser
+        .as_ref()
+        .map_or(String::new(), |b| b.display_name().to_string());
+    Hit {
+        score: 0,
+        title: tr("Search for “%s”").replacen("%s", text, 1),
+        subtitle: if name.is_empty() {
+            String::new()
+        } else {
+            tr("With the search engine of %s").replacen("%s", &name, 1)
+        },
+        kind: tr("Web"),
+        icon: browser_icon(),
+        activate: Box::new(move |ctx| match &argv {
+            Some(argv) => launch_argv(&name, argv, None, Some(ctx)),
+            None => Err(glib::Error::new(
+                gio::IOErrorEnum::NotFound,
+                &tr("no web browser found"),
+            )),
+        }),
+        alt: None,
+        path: None,
+    }
+}
+
 fn url_hit(url: String) -> Hit {
     Hit {
         score: 0,
@@ -250,21 +370,29 @@ fn run_in_terminal(
         .filter(|shell| !shell.is_empty())
         .unwrap_or_else(|| "/bin/sh".into());
     argv.extend(shell_argv(&shell, command, keep_open));
+    launch_argv(command, &argv, Some(home()), ctx)
+}
 
-    // An application entry made on the fly: it gives the launch a start-up notification, which
-    // is what lets the new window take focus under Wayland, and a working directory.
+/// Runs `argv` through an application entry made on the fly. That gives the launch a start-up
+/// notification, which is what lets the new window take focus under Wayland, and a working
+/// directory.
+fn launch_argv(
+    name: &str,
+    argv: &[String],
+    dir: Option<&str>,
+    ctx: Option<&gdk::AppLaunchContext>,
+) -> Result<(), glib::Error> {
     let entry = glib::KeyFile::new();
     let group = "Desktop Entry";
     entry.set_string(group, "Type", "Application");
-    entry.set_string(group, "Name", command);
-    entry.set_string(group, "Exec", &exec_line(&argv));
+    entry.set_string(group, "Name", name);
+    entry.set_string(group, "Exec", &exec_line(argv));
     entry.set_boolean(group, "StartupNotify", true);
-    if !home().is_empty() {
-        entry.set_string(group, "Path", home());
+    if let Some(dir) = dir.filter(|dir| !dir.is_empty()) {
+        entry.set_string(group, "Path", dir);
     }
-    let info = gio_unix::DesktopAppInfo::from_keyfile(&entry).ok_or_else(|| {
-        glib::Error::new(gio::IOErrorEnum::InvalidData, "invalid terminal command")
-    })?;
+    let info = gio_unix::DesktopAppInfo::from_keyfile(&entry)
+        .ok_or_else(|| glib::Error::new(gio::IOErrorEnum::InvalidData, "invalid command"))?;
     info.launch(&[], ctx)
 }
 
@@ -418,13 +546,12 @@ mod tests {
                 text: text.into(),
             })
         };
-        let ddg = "https://duckduckgo.com/?q=%s";
-        assert_eq!(
-            parse_with_built_ins("search: rust gtk"),
-            web(ddg, "rust gtk")
-        );
-        assert_eq!(parse_with_built_ins("search:rust"), web(ddg, "rust"));
-        assert_eq!(parse_with_built_ins("SEARCH:  rust "), web(ddg, "rust"));
+        // `search:` is the browser's own search: no address, no engine chosen by spot
+        let search = |text: &str| Some(Intent::Search(text.into()));
+        assert_eq!(parse_with_built_ins("search: rust gtk"), search("rust gtk"));
+        assert_eq!(parse_with_built_ins("search:rust"), search("rust"));
+        assert_eq!(parse_with_built_ins("SEARCH:  rust "), search("rust"));
+        assert_eq!(parse_with_built_ins("search:"), search(""));
         assert_eq!(
             parse_with_built_ins("gh: alarboulletmarin/spot"),
             web("https://github.com/search?q=%s", "alarboulletmarin/spot")
@@ -521,23 +648,155 @@ mod tests {
     }
 
     #[test]
-    fn the_fallback_uses_the_engine_of_search() {
-        let host =
-            |engines: &[Engine]| fallback_hit(" rust gtk ", engines).map(|h| (h.title, h.subtitle));
+    fn search_is_the_browsers_unless_the_config_says_otherwise() {
+        // no `search` in the config: the browser's own search, whatever this machine's browser is
+        let hit = search_hit("rust gtk", &built_in());
         assert_eq!(
-            host(&built_in()),
-            Some((
-                tr("Search for “%s”").replacen("%s", "rust gtk", 1),
-                "duckduckgo.com".into()
-            ))
+            hit.title,
+            tr("Search for “%s”").replacen("%s", "rust gtk", 1)
         );
+        assert_ne!(hit.subtitle, "startpage.com");
+        // an address of the user's own wins
         let mut engines = config_engines(&keyfile(
             "[Search]\nsearch=https://www.startpage.com/do/search?q=%s\n",
         ));
         engines.extend(built_in());
-        assert_eq!(host(&engines).unwrap().1, "startpage.com");
-        assert!(fallback_hit("  ", &built_in()).is_none());
-        assert!(fallback_hit("x", &[]).is_none());
+        assert_eq!(search_hit("rust gtk", &engines).subtitle, "startpage.com");
+        assert!(web_fallback("  ").is_none());
+    }
+
+    #[test]
+    fn each_browser_gets_words_the_way_it_takes_them() {
+        for (id_and_exec, terms) in [
+            ("firefox.desktop firefox %u", Terms::Flag),
+            (
+                "org.mozilla.firefox.desktop /usr/bin/flatpak run --command=firefox org.mozilla.firefox @@u %u @@",
+                Terms::Flag,
+            ),
+            ("firefox_firefox.desktop /snap/bin/firefox %u", Terms::Flag),
+            (
+                "io.gitlab.librewolf-community.desktop librewolf %u",
+                Terms::Flag,
+            ),
+            ("app.zen_browser.zen.desktop zen-browser %u", Terms::Flag),
+            ("org.gnome.Epiphany.desktop epiphany %U", Terms::Flag),
+            (
+                "google-chrome.desktop /usr/bin/google-chrome-stable %U",
+                Terms::Question,
+            ),
+            ("chromium.desktop chromium %U", Terms::Question),
+            (
+                "brave-browser.desktop brave-browser-stable %U",
+                Terms::Question,
+            ),
+            (
+                "microsoft-edge.desktop /usr/bin/microsoft-edge-stable %U",
+                Terms::Question,
+            ),
+            ("falkon.desktop falkon %u", Terms::Plain),
+            ("fakebrowser.desktop /opt/fakebrowser %u", Terms::Plain),
+            // a word that merely contains a browser's name is not that browser
+            ("knowledge.desktop knowledge-base %u", Terms::Plain),
+        ] {
+            assert_eq!(terms_for(id_and_exec), terms, "{id_and_exec}");
+        }
+    }
+
+    #[test]
+    fn the_browser_is_launched_with_the_words() {
+        let argv = |exec, terms, text| search_argv(exec, terms, text);
+        let v = |a: &[&str]| Some(a.iter().map(|s| s.to_string()).collect::<Vec<_>>());
+        assert_eq!(
+            argv("firefox %u", Terms::Flag, "rust & gtk4 100%"),
+            v(&["firefox", "--search", "rust & gtk4 100%"])
+        );
+        assert_eq!(
+            argv(
+                "/usr/bin/google-chrome-stable %U",
+                Terms::Question,
+                "rust gtk4"
+            ),
+            v(&["/usr/bin/google-chrome-stable", "? rust gtk4"])
+        );
+        assert_eq!(
+            argv("falkon %u", Terms::Plain, "rust gtk4"),
+            v(&["falkon", "rust gtk4"])
+        );
+        // options of the entry stay, placeholders go, Flatpak's markers too
+        assert_eq!(
+            argv(
+                "/usr/bin/flatpak run --branch=stable --command=firefox --file-forwarding org.mozilla.firefox @@u %u @@",
+                Terms::Flag,
+                "x"
+            ),
+            v(&[
+                "/usr/bin/flatpak",
+                "run",
+                "--branch=stable",
+                "--command=firefox",
+                "--file-forwarding",
+                "org.mozilla.firefox",
+                "--search",
+                "x"
+            ])
+        );
+        assert_eq!(
+            argv(
+                "env MOZ_ENABLE_WAYLAND=1 firefox --new-window %U",
+                Terms::Flag,
+                "x"
+            ),
+            v(&[
+                "env",
+                "MOZ_ENABLE_WAYLAND=1",
+                "firefox",
+                "--new-window",
+                "--search",
+                "x"
+            ])
+        );
+        assert_eq!(argv("", Terms::Flag, "x"), None);
+        assert_eq!(argv("%u", Terms::Flag, "x"), None);
+    }
+
+    /// The whole chain with a stand-in browser: what it is given is what the user typed, once.
+    #[test]
+    fn the_browser_receives_the_words_intact() {
+        let dir = std::env::temp_dir().join(format!("spot-browser-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let (browser, record) = (dir.join("fake-browser"), dir.join("args"));
+        std::fs::write(
+            &browser,
+            format!(
+                "#!/bin/sh\nprintf '%s\\n' \"$@\" > '{0}.tmp' && mv '{0}.tmp' '{0}'\n",
+                record.display()
+            ),
+        )
+        .unwrap();
+        std::fs::set_permissions(
+            &browser,
+            std::os::unix::fs::PermissionsExt::from_mode(0o755),
+        )
+        .unwrap();
+
+        let text = r#"it's "100%" & #1 %u"#;
+        let exec = format!("{} %u", browser.display());
+        for (terms, expected) in [
+            (Terms::Flag, format!("--search\n{text}\n")),
+            (Terms::Question, format!("? {text}\n")),
+            (Terms::Plain, format!("{text}\n")),
+        ] {
+            let _ = std::fs::remove_file(&record);
+            let argv = search_argv(&exec, terms, text).unwrap();
+            launch_argv("test", &argv, None, None).unwrap();
+            let deadline = Instant::now() + Duration::from_secs(5);
+            while !record.exists() && Instant::now() < deadline {
+                std::thread::sleep(Duration::from_millis(20));
+            }
+            let received = std::fs::read_to_string(&record).expect("the browser was not run");
+            assert_eq!(received, expected, "{terms:?}");
+        }
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]

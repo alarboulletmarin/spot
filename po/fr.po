@@ -78,3 +78,10 @@ msgstr "Terminal"
 
 msgid "no terminal found, set one in spot.conf"
 msgstr "aucun terminal trouvé, indiquez-en un dans spot.conf"
+
+#, c-format
+msgid "With the search engine of %s"
+msgstr "Avec le moteur de recherche de %s"
+
+msgid "no web browser found"
+msgstr "aucun navigateur web trouvé"
