@@ -1,5 +1,6 @@
 //! The launcher window: entry, result list, and the search that feeds it.
 
+use crate::prefix;
 use crate::providers::{self, SearchProvider};
 use crate::results::{Hit, command_result, file_result, report_launch_error, system_results};
 use crate::search::*;
@@ -13,6 +14,9 @@ use std::rc::Rc;
 use std::time::Duration;
 
 const DEBOUNCE: Duration = Duration::from_millis(90);
+/// How long the sources get before "search the web" is offered. Earlier, it would flash up for
+/// every query and vanish when the first application, provider or file answers.
+const FALLBACK_DELAY: Duration = Duration::from_millis(300);
 
 /// An application, with everything matching needs read once instead of on every keystroke.
 struct AppEntry {
@@ -86,6 +90,7 @@ pub struct Ui {
     sections: RefCell<HashMap<String, Vec<Rc<Hit>>>>, // per source, merged by render()
     query: RefCell<String>,
     generation: Cell<u32>,
+    settled: Cell<bool>, // FALLBACK_DELAY has passed for the current query
     cancellable: RefCell<gio::Cancellable>,
     debounce: RefCell<Option<glib::SourceId>>,
     file_proc: RefCell<Option<gio::Subprocess>>,
@@ -157,6 +162,7 @@ impl Ui {
             sections: RefCell::default(),
             query: RefCell::default(),
             generation: Cell::new(0),
+            settled: Cell::new(false),
             cancellable: RefCell::new(gio::Cancellable::new()),
             debounce: RefCell::default(),
             file_proc: RefCell::default(),
@@ -251,6 +257,7 @@ impl Ui {
         self.debounce.take(); // fired: its id is gone, removing it later would be an error
         let generation = self.generation.get().wrapping_add(1);
         self.generation.set(generation);
+        self.settled.set(false);
         // a newer keystroke supersedes everything in flight
         self.cancellable.replace(gio::Cancellable::new()).cancel();
         if let Some(proc) = self.file_proc.take() {
@@ -263,6 +270,19 @@ impl Ui {
         if query.is_empty() {
             return self.render();
         }
+        if let Some(hits) = prefix::hits(&query) {
+            // `!ls`, `search: …`: the query is an instruction, not something to look for
+            let hits = hits.into_iter().map(Rc::new).collect();
+            self.sections.borrow_mut().insert("prefix".into(), hits);
+            return self.render();
+        }
+        let ui = self.clone();
+        glib::timeout_add_local_once(FALLBACK_DELAY, move || {
+            if ui.generation.get() == generation {
+                ui.settled.set(true);
+                ui.render();
+            }
+        });
         let apps: Vec<_> = self
             .search_apps(&query)
             .into_iter()
@@ -295,7 +315,8 @@ impl Ui {
 
     fn render(&self) {
         let sections = self.sections.borrow();
-        let order = std::iter::once("apps")
+        let order = ["prefix", "apps"]
+            .into_iter()
             .chain(self.data.providers.iter().map(|p| p.desktop_id.as_str()))
             .chain(["files"]);
         let mut results: Vec<Rc<Hit>> = vec![];
@@ -308,8 +329,12 @@ impl Ui {
             }
             results.push(hit.clone());
         }
-        if results.is_empty() {
-            results.extend(command_result(&self.query.borrow()).map(Rc::new));
+        if results.is_empty() && !sections.contains_key("prefix") {
+            let query = self.query.borrow();
+            results.extend(command_result(&query).map(Rc::new));
+            if self.settled.get() {
+                results.extend(prefix::web_fallback(&query).map(Rc::new));
+            }
         }
         drop(sections);
         self.show_results(results);
