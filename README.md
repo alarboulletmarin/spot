@@ -153,7 +153,7 @@ Comments go on their own line: this format has no end-of-line comments.
 
 ![spot, glass style, light and dark](docs/screenshots/glass.png)
 
-**`compact`**: denser rows, smaller icons, an accent bar marks the selection.
+**`compact`**: denser rows, smaller icons, the selection is a neutral tint rather than the accent colour.
 
 ![spot, compact style, light and dark](docs/screenshots/compact.png)
 

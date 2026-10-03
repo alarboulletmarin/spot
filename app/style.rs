@@ -90,7 +90,7 @@ window.spot.glass .spot-row:selected .spot-sub { opacity: 0.62; }
 window.spot.glass .spot-row:selected .spot-kind { background-color: alpha(@accent_bg_color, 0.30); opacity: 0.9; }
 window.spot.glass .spot-kind { background-color: alpha(currentColor, 0.07); }
 
-/* compact: denser rows, small icons, a bar instead of a filled selection */
+/* compact: denser rows, small icons, a neutral tint instead of the accent colour for the selection */
 window.spot.compact .spot-card { border-radius: 12px; }
 window.spot.compact .spot-search { padding: 0 14px; }
 window.spot.compact .spot-search-icon { -gtk-icon-size: 18px; }
@@ -100,13 +100,9 @@ window.spot.compact .spot-row { padding: 3px 10px; margin: 0; border-radius: 8px
 window.spot.compact .spot-icon { -gtk-icon-size: 24px; }
 window.spot.compact .spot-title { font-size: 0.95rem; font-weight: 400; }
 window.spot.compact .spot-sub { font-size: 0.76rem; }
-window.spot.compact .spot-row:selected {
-    background-color: alpha(currentColor, 0.09);
-    color: inherit;
-    box-shadow: inset 3px 0 0 @accent_bg_color;
-}
+window.spot.compact .spot-row:selected { background-color: alpha(currentColor, 0.12); color: inherit; }
 window.spot.compact .spot-row:selected .spot-sub { opacity: 0.62; }
-window.spot.compact .spot-row:selected .spot-kind { background-color: alpha(currentColor, 0.08); opacity: 0.75; }
+window.spot.compact .spot-row:selected .spot-kind { background-color: alpha(currentColor, 0.10); opacity: 0.75; }
 ";
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
