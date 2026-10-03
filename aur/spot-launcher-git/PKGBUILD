@@ -1,0 +1,40 @@
+# Maintainer: Andrea Larboullet Marin <a.larboulletmarin@gmail.com>
+# Tracks the main branch: every `makepkg -si` (or `yay -Syu`) builds the latest commit.
+pkgname=spot-launcher-git
+_name=spot
+pkgver=0.4.0.r0.g0000000
+pkgrel=1
+pkgdesc="Application and file launcher for GNOME (development version)"
+arch=('x86_64' 'aarch64')
+url="https://github.com/alarboulletmarin/spot"
+license=('MIT')
+depends=('gtk4' 'libadwaita' 'glib2')
+makedepends=('cargo' 'git' 'gettext')
+optdepends=('plocate: indexed file search')
+provides=('spot-launcher')
+conflicts=('spot-launcher')
+source=("git+$url.git")
+sha256sums=('SKIP')
+
+pkgver() {
+    cd "$_name"
+    git describe --long --tags --abbrev=7 | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
+}
+
+prepare() {
+    cd "$_name"
+    export RUSTUP_TOOLCHAIN=stable
+    cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+    cd "$_name"
+    export RUSTUP_TOOLCHAIN=stable
+    export CARGO_TARGET_DIR=target
+    cargo build --frozen --release
+}
+
+package() {
+    cd "$_name"
+    make DESTDIR="$pkgdir" PREFIX=/usr install
+}

@@ -28,17 +28,25 @@ Application and file launcher for Linux, in Rust + GTK4 / libadwaita. Press a sh
 | Fedora | [Fedora](#fedora) |
 | Anything else with GTK 4.12+ | [Other distributions](#other-distributions) |
 
-There are no prebuilt packages yet: spot is compiled on your machine. Debian 12, Ubuntu 22.04, Linux Mint 21 and older cannot run it, their GTK is older than 4.12. macOS and Windows are not supported, see [Compatibility](#compatibility).
+On Arch there is a prebuilt package; everywhere else spot is compiled on your machine. Debian 12, Ubuntu 22.04, Linux Mint 21 and older cannot run it, their GTK is older than 4.12. macOS and Windows are not supported, see [Compatibility](#compatibility).
 
 ### Arch Linux
 
-The PKGBUILD compiles the latest tagged release and installs it as the `spot-launcher` package, which pacman then tracks like any other. It is not on the AUR yet.
+Every release ships a ready-to-install package (no compiler needed). It installs as `spot-launcher`, which pacman then tracks like any other:
+
+```bash
+sudo pacman -U https://github.com/alarboulletmarin/spot/releases/latest/download/spot-launcher-x86_64.pkg.tar.zst
+```
+
+To follow `main` instead, build the development package from a checkout (needs `cargo`, it conflicts with `spot-launcher`):
 
 ```bash
 git clone https://github.com/alarboulletmarin/spot.git
-cd spot
+cd spot/aur/spot-launcher-git
 makepkg -si
 ```
+
+Or build the latest tagged release yourself with `makepkg -si` from the repository root. Not on the AUR yet.
 
 Optional: `plocate`, for file search.
 
@@ -84,7 +92,13 @@ sudo make install       # PREFIX=/usr/local by default, PREFIX=/usr for a system
 
 ### Upgrading
 
-Run the same commands again (`git pull` first), then restart the background process:
+| Installed with | Upgrade |
+|---|---|
+| Arch, prebuilt package | run the `pacman -U` command above again |
+| Arch, `spot-launcher-git` | `git pull` then `makepkg -si` in `aur/spot-launcher-git` |
+| `make install` | `git pull`, then `make` and `sudo make install` |
+
+Then restart the background process so the new binary runs:
 
 ```bash
 spot --quit && spot --daemon &
@@ -225,7 +239,7 @@ On a desktop other than GNOME:
 
 | Distribution | Install | Tested |
 |---|---|---|
-| Arch Linux | `makepkg` | yes |
+| Arch Linux | prebuilt package or `makepkg` | yes |
 | Ubuntu 24.04, Linux Mint 22 | `make install`, Rust from rustup | build and install on Ubuntu 24.04 |
 | Debian 13, Fedora, openSUSE Tumbleweed | `make install`, Rust from rustup if older than 1.92 | no |
 
@@ -272,6 +286,8 @@ make test                           # cargo test + translation files
 
 SPOT_APP_ID=dev.andrea.SpotDev ...  # run next to the installed one (both `spot` and `spot-resident` read it)
 ```
+
+Releasing (maintainer): `scripts/release.sh X.Y.Z` bumps the version, tags, pushes, creates the GitHub release (the Arch package is attached by `.github/workflows/arch-package.yml`) and pins the PKGBUILD checksum.
 
 A checkout runs in English: translations are compiled at install time. To add a language, copy `po/spot.pot` to `po/<lang>.po` and fill in the `msgstr` lines.
 

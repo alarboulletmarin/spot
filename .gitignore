@@ -12,3 +12,8 @@
 
 # Rust
 /target/
+
+# makepkg builds of aur/*
+/aur/*/src/
+/aur/*/pkg/
+/aur/*/spot/
