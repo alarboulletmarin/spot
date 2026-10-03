@@ -28,7 +28,7 @@ pub fn report_launch_error(error: &glib::Error) {
     );
 }
 
-fn themed(name: &str) -> gio::Icon {
+pub fn themed(name: &str) -> gio::Icon {
     gio::ThemedIcon::new(name).upcast()
 }
 

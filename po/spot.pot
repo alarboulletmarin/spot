@@ -60,3 +60,26 @@ msgstr ""
 
 msgid "File"
 msgstr ""
+
+#, c-format
+msgid "Search for “%s”"
+msgstr ""
+
+msgid "Web"
+msgstr ""
+
+msgid "Open in the default browser"
+msgstr ""
+
+#, c-format
+msgid "Run “%s” in a terminal"
+msgstr ""
+
+msgid "The terminal stays open · Ctrl+Enter closes it when the command ends"
+msgstr ""
+
+msgid "Terminal"
+msgstr ""
+
+msgid "no terminal found, set one in spot.conf"
+msgstr ""

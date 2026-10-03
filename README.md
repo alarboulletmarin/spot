@@ -4,7 +4,7 @@ Application and file launcher for Linux, in Rust + GTK4 / libadwaita. Press a sh
 
 ![spot, default style, light and dark](docs/screenshots/default.png)
 
-[Features](#features) · [Install](#install) · [First run](#first-run) · [Using spot](#using-spot) · [Appearance](#appearance) · [Compatibility](#compatibility) · [Troubleshooting](#troubleshooting) · [How it works](#how-it-works) · [Development](#development)
+[Features](#features) · [Install](#install) · [First run](#first-run) · [Using spot](#using-spot) · [Prefixes](#prefixes) · [Appearance](#appearance) · [Compatibility](#compatibility) · [Troubleshooting](#troubleshooting) · [How it works](#how-it-works) · [Development](#development)
 
 ## Features
 
@@ -12,6 +12,7 @@ Application and file launcher for Linux, in Rust + GTK4 / libadwaita. Press a sh
 - **Files** in your home directory, found as you type.
 - **Everything the GNOME Activities overview finds**: calculator results, Settings panels, Nautilus files.
 - **Commands**: if nothing matches, Enter runs what you typed.
+- **Prefixes**: `!htop` runs in a terminal, `search: rust` searches the web. See [Prefixes](#prefixes).
 - **System actions**: lock, suspend, log out, restart, shut down.
 - **Instant**: the first launch stays in the background; opening the window takes about 10 ms.
 - **Three styles**, light and dark, following the accent colour of your desktop. See [Appearance](#appearance).
@@ -128,6 +129,38 @@ The window also closes as soon as it loses focus.
 | `report` | files in your home directory whose name contains it (from 3 characters) |
 | `lock`, `shut` | the matching system action |
 | `notify-send hello` | when nothing matches and the first word is a program on your `PATH`: Enter runs the line in the background, without a terminal |
+| `!git status` | a prefix: the command runs in a terminal, see [Prefixes](#prefixes) |
+| `search: rust gtk4` | a prefix: a web search in your browser |
+
+## Prefixes
+
+A prefix turns what you type into an instruction. While one is there, spot searches for nothing else.
+
+| Type | Enter | Ctrl + Enter |
+|---|---|---|
+| `!git status` | runs the command in a terminal, which stays open afterwards | the same, but the terminal closes when the command ends |
+| `search: rust gtk4` | searches the web in your default browser | |
+| `g: …` `ddg: …` `yt: …` `gh: …` | the same on Google, DuckDuckGo, YouTube, GitHub | |
+| `https://example.com` or `www.example.com` | opens the address in your default browser | |
+
+The space after the colon is optional (`gh:alarboulletmarin/spot`), and so is the case.
+
+**Terminal commands.** `!` runs your shell (`$SHELL`) in your home directory, as an interactive shell, so your aliases and your `PATH` apply. The terminal is the first one found among: `xdg-terminal-exec`, `$TERMINAL`, the default terminal set in GNOME, `x-terminal-emulator`, then the usual ones (GNOME Terminal, Ptyxis, Console, Konsole, Xfce Terminal, Alacritty, kitty, foot, WezTerm, xterm…). The way each is told to run a program was checked on xterm, Xfce Terminal, Terminator, MATE Terminal, LXTerminal, Tilix and Console; for GNOME Terminal, kitty, Alacritty and foot it follows their documentation; Konsole, Ptyxis and WezTerm are untested.
+
+**Web searches.** `search:` uses DuckDuckGo. Each keyword is a line in the `[Search]` group of `~/.config/spot/spot.conf`; the text you type replaces `%s`, and the address must start with `http://` or `https://`. A line in the file wins over the built-in keyword of the same name, so this is also how to point `search:` at another engine.
+
+```ini
+# Search: keyword=address
+# Terminal: the terminal for `!`, then the argument that introduces the program
+[Search]
+search=https://www.startpage.com/do/search?q=%s
+nix=https://search.nixos.org/packages?query=%s
+
+[Terminal]
+Command=alacritty -e
+```
+
+Both groups are read when you use them, so there is nothing to restart. Without `[Terminal]`, spot picks the terminal itself.
 
 ## Appearance
 
@@ -200,6 +233,8 @@ Requirements: GTK 4.12+, libadwaita 1, GLib, `plocate` for file search. Building
 
 **File search finds nothing, or misses a recent file.** It uses the `plocate` index, which a timer refreshes daily. Refresh it now with `sudo updatedb`. Only your home directory is searched, hidden entries and `node_modules` are skipped, and the search starts at 3 characters.
 
+**`!command` does nothing, or opens the wrong terminal.** Name the terminal in the `[Terminal]` group, see [Prefixes](#prefixes). A terminal that cannot be found is reported on the standard error of `spot-resident`.
+
 **An application is missing.** It may be hidden on your desktop by `OnlyShowIn=` or `NoDisplay=` in its `.desktop` file.
 
 **A style or an option is ignored.** Run `spot --quit; spot-resident --daemon` in a terminal: a wrong value in `spot.conf` is reported there, and the default is used for that key.
@@ -214,6 +249,7 @@ Requirements: GTK 4.12+, libadwaita 1, GLib, `plocate` for file search. Building
 - **Files**: `plocate` is queried asynchronously on each keystroke (90 ms debounce, from 3 characters), matched on the file name only. Entries that no longer exist are hidden.
 - **Search providers**: spot queries the GNOME Shell search providers over D-Bus, the same ones as the Activities overview, and honours what you enabled in Settings → Search.
 - **Commands**: when nothing matches and the first word is a program on your `PATH`, Enter runs the line.
+- **Prefixes**: checked before anything else; one that matches replaces the search. Web pages open with GIO's default handler for `https`; terminal commands are launched through a generated application entry, which is what gives the new window the focus.
 - **System actions**: over D-Bus; restart, shut down and log out go through GNOME's confirmation dialog.
 - **Resident process**: the first invocation stays in the background with its window already created. Every later `spot` is a small GIO-only binary that asks it over D-Bus to show that window, without loading GTK. On the author's machine that call takes about 10 ms (median), and the very first opening after login is as fast as the next ones (the window is built at startup instead of on first use, which used to cost ~1.9 s).
 

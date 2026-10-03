@@ -1,5 +1,6 @@
 //! The launcher window: entry, result list, and the search that feeds it.
 
+use crate::prefix;
 use crate::providers::{self, SearchProvider};
 use crate::results::{Hit, command_result, file_result, report_launch_error, system_results};
 use crate::search::*;
@@ -263,6 +264,12 @@ impl Ui {
         if query.is_empty() {
             return self.render();
         }
+        if let Some(hits) = prefix::hits(&query) {
+            // `!ls`, `search: …`: the query is an instruction, not something to look for
+            let hits = hits.into_iter().map(Rc::new).collect();
+            self.sections.borrow_mut().insert("prefix".into(), hits);
+            return self.render();
+        }
         let apps: Vec<_> = self
             .search_apps(&query)
             .into_iter()
@@ -295,7 +302,8 @@ impl Ui {
 
     fn render(&self) {
         let sections = self.sections.borrow();
-        let order = std::iter::once("apps")
+        let order = ["prefix", "apps"]
+            .into_iter()
             .chain(self.data.providers.iter().map(|p| p.desktop_id.as_str()))
             .chain(["files"]);
         let mut results: Vec<Rc<Hit>> = vec![];
@@ -308,7 +316,7 @@ impl Ui {
             }
             results.push(hit.clone());
         }
-        if results.is_empty() {
+        if results.is_empty() && !sections.contains_key("prefix") {
             results.extend(command_result(&self.query.borrow()).map(Rc::new));
         }
         drop(sections);

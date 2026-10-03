@@ -55,3 +55,26 @@ msgstr "Éteindre"
 
 msgid "System"
 msgstr "Système"
+
+#, c-format
+msgid "Search for “%s”"
+msgstr "Rechercher « %s »"
+
+msgid "Web"
+msgstr "Web"
+
+msgid "Open in the default browser"
+msgstr "Ouvrir dans le navigateur par défaut"
+
+#, c-format
+msgid "Run “%s” in a terminal"
+msgstr "Exécuter « %s » dans un terminal"
+
+msgid "The terminal stays open · Ctrl+Enter closes it when the command ends"
+msgstr "Le terminal reste ouvert · Ctrl+Entrée le ferme à la fin de la commande"
+
+msgid "Terminal"
+msgstr "Terminal"
+
+msgid "no terminal found, set one in spot.conf"
+msgstr "aucun terminal trouvé, indiquez-en un dans spot.conf"

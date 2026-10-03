@@ -16,7 +16,7 @@ use std::time::Duration;
 pub const CARD_WIDTH: i32 = 720;
 pub const SHADOW: i32 = 36;
 
-const CONFIG_FILE: &str = "spot.conf";
+pub const CONFIG_FILE: &str = "spot.conf";
 const USER_CSS_FILE: &str = "style.css";
 const RELOAD_DELAY: Duration = Duration::from_millis(120);
 
@@ -199,7 +199,7 @@ impl Appearance {
     }
 }
 
-fn config_dir() -> PathBuf {
+pub fn config_dir() -> PathBuf {
     glib::user_config_dir().join("spot")
 }
 
@@ -359,9 +359,10 @@ mod tests {
         let readme = include_str!("../README.md");
         let block = readme
             .split("```ini\n")
-            .nth(1)
-            .and_then(|rest| rest.split("```").next())
-            .expect("an ini example in the README");
+            .skip(1) // what comes before the first example is prose, which may mention the group
+            .filter_map(|rest| rest.split("```").next())
+            .find(|block| block.contains("[Appearance]"))
+            .expect("an [Appearance] example in the README");
         let a = Appearance::parse(block);
         assert_eq!((a.style, a.scheme), (Style::Glass, Scheme::System));
     }

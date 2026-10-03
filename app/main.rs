@@ -7,7 +7,9 @@
 //! Files:        plocate, queried asynchronously on each keystroke (debounced).
 //! Everything else (calculator, settings panels…): the GNOME Shell search
 //! providers, the same D-Bus services the Activities overview queries.
+//! Prefixes:     `!command` runs in a terminal, `search: text` opens a web search.
 
+mod prefix;
 mod providers;
 mod results;
 mod search;
@@ -107,6 +109,7 @@ mod tests {
     fn translations_cover_source_strings() {
         let sources = [
             include_str!("main.rs"),
+            include_str!("prefix.rs"),
             include_str!("providers.rs"),
             include_str!("results.rs"),
             include_str!("ui.rs"),
