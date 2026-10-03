@@ -31,17 +31,20 @@ The window also closes as soon as it loses focus.
 
 ## Supported platforms
 
-Linux only. The three building blocks are Linux-specific: applications come from `.desktop` files, files from `plocate`, and the resident process is woken over the D-Bus session bus. There is no plan for macOS (Raycast is there) or Windows.
+Linux, on any distribution. The three building blocks are Linux-specific: applications come from `.desktop` files, files from `plocate`, and the resident process is woken over the D-Bus session bus. macOS and Windows are not supported and there is no plan for them: each of those three blocks would have to be rewritten, and Raycast already exists there.
+
+Nothing in the code is tied to Arch; only the `PKGBUILD` is. Everywhere else it is `make install`.
 
 | Environment | Status |
 |---|---|
 | GNOME, Wayland or X11 | first-class, this is what it is built and tested on |
-| Any other GTK4 desktop (KDE Plasma, Hyprland, Sway…) | works, with the Adwaita look and a plain floating window; set the shortcut and a centering rule in your compositor |
+| Any other GTK4 desktop (KDE Plasma, Cinnamon, Hyprland, Sway…) | should work, with the Adwaita look and a plain floating window; set the shortcut and a centering rule in your compositor. Not tested on those desktops: applications that are `OnlyShowIn=GNOME` are hidden (GLib's rule), and lock / log out / restart / shut down go through GNOME's session services, so they may do nothing |
 | Arch Linux | `makepkg` from a checkout, see below; not on the AUR yet |
-| Fedora 40+, Ubuntu 24.04+, Debian 13+, openSUSE Tumbleweed | `make install` from a checkout |
-| Debian 12 and older | no, GTK is older than 4.12 |
+| Ubuntu 24.04+, Linux Mint 22+ | `make install` from a checkout, with a Rust installed through rustup. Build and install tested on Ubuntu 24.04 |
+| Fedora, Debian 13, openSUSE Tumbleweed | `make install` from a checkout. Not tested; same Rust caveat |
+| Debian 12, Ubuntu 22.04, Linux Mint 21 and older | no, GTK is older than 4.12 |
 
-Requirements: GTK 4.12+, libadwaita 1, GLib, and `plocate` for file search. Building needs Rust (`cargo`).
+Requirements: GTK 4.12+, libadwaita 1, GLib, and `plocate` for file search. Building needs Rust **1.92 or newer** (`rust-version` in `Cargo.toml`, set by the GTK bindings). Most distributions package an older one (Ubuntu 24.04, hence Linux Mint 22, stops at 1.91), so install it with [rustup](https://rustup.rs) there; Arch is recent enough.
 
 ## Installation
 
@@ -53,9 +56,14 @@ cd spot
 makepkg -si
 ```
 
-Any other distribution, from a checkout (needs `cargo`, the GTK 4 and libadwaita development files, and `gettext` for `msgfmt`):
+Any other distribution, from a checkout. You need Rust 1.92+ (see above), the GTK 4 and libadwaita development files, and `gettext` for `msgfmt`:
 
 ```bash
+# Debian, Ubuntu, Linux Mint
+sudo apt install build-essential pkg-config libgtk-4-dev libadwaita-1-dev gettext plocate
+# Fedora (names not tested)
+sudo dnf install gcc pkgconf-pkg-config gtk4-devel libadwaita-devel gettext plocate
+
 make                    # cargo build --release --locked
 sudo make install       # PREFIX=/usr/local by default
 ```
@@ -71,6 +79,35 @@ gsettings set org.gnome.mutter center-new-windows true
 ```
 
 To upgrade, run the same commands again (`git pull` first on Arch), then restart the resident process: `spot --quit && spot --daemon &`.
+
+## Appearance
+
+Spot takes its colours from the desktop: light or dark follows the system setting, and so does the accent colour where libadwaita publishes it (libadwaita 1.6+, e.g. GNOME 47+; older versions use Adwaita blue). Like every libadwaita application it does not follow a custom GTK theme.
+
+Pick a style in `~/.config/spot/spot.conf`. The file is watched: save it and the open window changes, no restart.
+
+```ini
+# Style: default, glass or compact
+# ColorScheme: system, light or dark
+[Appearance]
+Style=glass
+ColorScheme=system
+```
+
+Comments go on their own line: this format has no end-of-line comments.
+
+| Style | Look |
+|---|---|
+| `default` | solid card, selected row filled with the accent colour |
+| `glass` | translucent card, larger corners, selection as a soft tint of the accent colour. Needs a compositor; there is no blur, GTK cannot blur what is behind a window |
+| `compact` | denser rows, smaller icons, an accent bar marks the selection |
+
+For anything else, `~/.config/spot/style.css` is loaded after the built-in styles and reloaded the same way. libadwaita colours can be redefined, and the widgets have classes (`.spot-card`, `.spot-entry`, `.spot-row`, `.spot-icon`, `.spot-title`, `.spot-sub`, `.spot-kind`; they may change between versions):
+
+```css
+@define-color accent_bg_color #e66100;
+.spot-card { border-radius: 8px; }
+```
 
 ## Development
 
