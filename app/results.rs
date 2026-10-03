@@ -150,17 +150,21 @@ pub fn command_result(query: &str) -> Option<Hit> {
         subtitle: tr("Runs in the background, without a terminal"),
         kind: tr("Command"),
         icon: themed("utilities-terminal-symbolic"),
-        activate: Box::new(move |ctx| {
-            gio::AppInfo::create_from_commandline(
-                &command,
-                None::<&str>,
-                gio::AppInfoCreateFlags::NONE,
-            )?
-            .launch(&[], Some(ctx))
-        }),
+        activate: Box::new(move |ctx| run_command(&command, Some(ctx))),
         alt: None,
         path: None,
     })
+}
+
+/// Runs `command` in the background. GLib reads `%f`, `%F`, `%u`… in it as desktop-entry field
+/// codes and silently drops them (`date +%F` would run as `date +`), so every `%` is doubled.
+fn run_command(command: &str, ctx: Option<&gdk::AppLaunchContext>) -> Result<(), glib::Error> {
+    gio::AppInfo::create_from_commandline(
+        command.replace('%', "%%"),
+        None::<&str>,
+        gio::AppInfoCreateFlags::NONE,
+    )?
+    .launch(&[], ctx)
 }
 
 /// Open the containing folder in the user's file manager.
@@ -211,6 +215,34 @@ mod tests {
         assert_eq!(command_result("ls -la").unwrap().kind, tr("Command"));
         assert!(command_result("no-such-program-xyz --flag").is_none());
         assert!(command_result("").is_none());
+    }
+
+    /// A `%` in a command reaches the program as typed, not eaten as a field code.
+    #[test]
+    fn command_keeps_percent_signs() {
+        let dir = std::env::temp_dir().join(format!("spot-command-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let (script, record) = (dir.join("record-args"), dir.join("args"));
+        std::fs::write(
+            &script,
+            format!(
+                "#!/bin/sh\nprintf '%s\\n' \"$@\" > '{0}.tmp' && mv '{0}.tmp' '{0}'\n",
+                record.display()
+            ),
+        )
+        .unwrap();
+        std::fs::set_permissions(&script, std::os::unix::fs::PermissionsExt::from_mode(0o755))
+            .unwrap();
+
+        run_command(&format!("{} +%F 100% %u", script.display()), None).unwrap();
+
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while !record.exists() && std::time::Instant::now() < deadline {
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        let received = std::fs::read_to_string(&record).expect("the command was not run");
+        assert_eq!(received, "+%F\n100%\n%u\n");
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]
