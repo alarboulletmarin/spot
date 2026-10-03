@@ -142,10 +142,9 @@ A prefix turns what you type into an instruction. While one is there, spot searc
 |---|---|---|
 | `!git status` | runs the command in a terminal, which stays open afterwards | the same, but the terminal closes when the command ends |
 | `search: rust gtk4` | your default browser searches for it, with its own search engine | |
-| `g: …` `ddg: …` `yt: …` `gh: …` | a search on that particular site (Google, DuckDuckGo, YouTube, GitHub), in your default browser | |
 | `https://example.com` or `www.example.com` | opens the address in your default browser | |
 
-The space after the colon is optional (`gh:alarboulletmarin/spot`), and so is the case.
+The space after the colon is optional (`search:rust`), and so is the case.
 
 **Terminal commands.** `!` runs your shell (`$SHELL`) in your home directory, as an interactive shell, so your aliases and your `PATH` apply. The terminal is the first one found among: `xdg-terminal-exec`, `$TERMINAL`, the default terminal set in GNOME, `x-terminal-emulator`, then the usual ones (GNOME Terminal, Ptyxis, Console, Konsole, Xfce Terminal, Alacritty, kitty, foot, WezTerm, xterm…). The way each is told to run a program was checked on xterm, Xfce Terminal, Terminator, MATE Terminal, LXTerminal, Tilix and Console; for GNOME Terminal, kitty, Alacritty and foot it follows their documentation; Konsole, Ptyxis and WezTerm are untested.
 
@@ -159,20 +158,15 @@ The space after the colon is optional (`gh:alarboulletmarin/spot`), and so is th
 
 This comes from the sources of Firefox, Chromium and GNOME Web, where both forms are handled; the forks are assumed to keep them, and none of the real browsers was run.
 
-`g:`, `ddg:`, `yt:` and `gh:` are different: they search one particular site, through its address. Add your own as lines of the `[Search]` group of `~/.config/spot/spot.conf`: the text you type replaces `%s`, and the address must start with `http://` or `https://`. A line in the file wins over the built-in keyword of the same name. A line named `search` gives `search:` an address of its own instead of the browser's search.
+To use something else than the browser's own search, there is nothing to configure in spot: set the engine in your browser.
+
+The terminal can be named in `~/.config/spot/spot.conf`; without it, spot picks the default one as described above. The file is read when you use it, so there is nothing to restart.
 
 ```ini
-# Search: keyword=address
-# Terminal: the terminal for `!`, then the argument that introduces the program
-[Search]
-nix=https://search.nixos.org/packages?query=%s
-wiki=https://en.wikipedia.org/w/index.php?search=%s
-
+# The terminal for `!`, then the argument that introduces the program
 [Terminal]
 Command=alacritty -e
 ```
-
-Both groups are read when you use them, so there is nothing to restart. Without `[Terminal]`, spot picks the terminal itself.
 
 ## Appearance
 
@@ -262,7 +256,7 @@ Requirements: GTK 4.12+, libadwaita 1, GLib, `plocate` for file search. Building
 - **Search providers**: spot queries the GNOME Shell search providers over D-Bus, the same ones as the Activities overview, and honours what you enabled in Settings → Search.
 - **Commands**: when nothing matches and the first word is a program on your `PATH`, Enter runs the line.
 - **Web search**: when nothing matches, a “Search for…” row is added once the sources have had 300 ms to answer, so it does not flash up for every query. It does what `search:` does.
-- **Prefixes**: checked before anything else; one that matches replaces the search. Addresses and site searches open with GIO's default handler for `https`. `search:` runs the default browser's own command (the `Exec` line of its desktop entry) with the words added, and terminal commands are launched the same way, through a generated application entry, which is what gives the new window the focus.
+- **Prefixes**: checked before anything else; one that matches replaces the search. Addresses open with GIO's default handler for `https`. `search:` runs the default browser's own command (the `Exec` line of its desktop entry) with the words added, and terminal commands are launched the same way, through a generated application entry, which is what gives the new window the focus.
 - **System actions**: over D-Bus; restart, shut down and log out go through GNOME's confirmation dialog.
 - **Resident process**: the first invocation stays in the background with its window already created. Every later `spot` is a small GIO-only binary that asks it over D-Bus to show that window, without loading GTK. On the author's machine that call takes about 10 ms (median), and the very first opening after login is as fast as the next ones (the window is built at startup instead of on first use, which used to cost ~1.9 s).
 
