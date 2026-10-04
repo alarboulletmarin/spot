@@ -26,7 +26,7 @@ else
     { echo "## Changes"; echo
       git log "$prev..HEAD" --no-merges --pretty='- %s' | grep -vE '^- (chore|build)(\(.*\))?: ' || true
       echo; echo "## Install and upgrade"; echo
-      echo "See the [README](https://github.com/alarboulletmarin/spot#install). On Arch: \`sudo pacman -U https://github.com/alarboulletmarin/spot/releases/latest/download/spot-launcher-x86_64.pkg.tar.zst\`"
+      echo "See the [README](https://github.com/alarboulletmarin/spot#install). On Arch, download \`spot-launcher-x86_64.pkg.tar.zst\` from the assets below, then \`sudo pacman -U ./spot-launcher-x86_64.pkg.tar.zst\`."
     } >"$notes"
 fi
 
