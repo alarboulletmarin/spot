@@ -1,10 +1,12 @@
 //! The launcher window: entry, result list, and the search that feeds it.
 
+use crate::config::{self, Command};
+use crate::palette;
 use crate::prefix;
 use crate::providers::{self, SearchProvider};
-use crate::results::{Hit, command_result, file_result, report_launch_error, system_results};
+use crate::results::{Hit, Then, command_result, file_result, report_launch_error, system_results};
 use crate::search::*;
-use crate::style::{CARD_WIDTH, SHADOW};
+use crate::style::{self, CARD_WIDTH, SHADOW};
 use crate::tr;
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib, pango};
@@ -85,6 +87,10 @@ pub struct Ui {
     sep: gtk::Box,
     list: gtk::ListBox,
     scroller: gtk::ScrolledWindow,
+    footer: gtk::Box,
+    actions: gtk::Label, // what Enter and the second action do to the selected row
+    way_out: gtk::Label, // where the settings are, or how to leave them
+    previewing: Cell<bool>, // a settings row is showing its value, unsaved
     data: Rc<AppData>,
     results: RefCell<Vec<Rc<Hit>>>,
     sections: RefCell<HashMap<String, Vec<Rc<Hit>>>>, // per source, merged by render()
@@ -151,12 +157,29 @@ impl Ui {
             .build();
         card.append(&scroller);
 
+        // the keys that apply to the selected row: what makes the rest discoverable
+        let footer = gtk::Box::builder()
+            .visible(false)
+            .spacing(18)
+            .css_classes(["spot-footer"])
+            .build();
+        let actions = label("", None);
+        actions.set_hexpand(true);
+        let way_out = gtk::Label::new(None);
+        footer.append(&actions);
+        footer.append(&way_out);
+        card.append(&footer);
+
         let ui = Rc::new(Ui {
             win,
             entry,
             sep,
             list,
             scroller,
+            footer,
+            actions,
+            way_out,
+            previewing: Cell::new(false),
             data,
             results: RefCell::default(),
             sections: RefCell::default(),
@@ -176,10 +199,14 @@ impl Ui {
         let u = ui.clone();
         ui.list
             .connect_row_activated(move |_, row| u.activate_row(Some(row), false));
+        let u = ui.clone();
+        ui.list.connect_row_selected(move |_, _| u.update_footer());
 
         let keys = gtk::EventControllerKey::new();
         let u = ui.clone();
-        keys.connect_key_pressed(move |_, key, _, state| u.on_key(key, state));
+        keys.connect_key_pressed(move |_, key, keycode, state| u.on_key(key, keycode, state));
+        let u = ui.clone();
+        keys.connect_key_released(move |_, key, _, state| u.show_picks(state - modifier_of(key)));
         ui.win.add_controller(keys);
         let u = ui.clone();
         ui.win.connect_is_active_notify(move |w| {
@@ -193,32 +220,82 @@ impl Ui {
     // -- lifecycle -------------------------------------------------------
 
     /// Clear the query and show the window, ready for typing.
-    pub fn present_fresh(&self) {
+    pub fn present_fresh(self: &Rc<Self>) {
         self.entry.set_text("");
-        self.show_results(vec![]);
+        self.list.unselect_all(); // the last pick is not this search's
+        self.win.remove_css_class("picking");
+        self.search(); // an empty query has no rows, except what is wrong in spot.conf
         self.win.present();
         self.entry.grab_focus();
     }
 
     pub fn dismiss(&self) {
         self.win.set_visible(false);
+        if self.previewing.replace(false) {
+            style::revert();
+        }
     }
 
     // -- keyboard --------------------------------------------------------
 
-    fn on_key(&self, key: gdk::Key, state: gdk::ModifierType) -> glib::Propagation {
-        match key {
-            gdk::Key::Escape => self.dismiss(),
-            gdk::Key::Return | gdk::Key::KP_Enter
-                if state.contains(gdk::ModifierType::CONTROL_MASK) =>
-            {
-                self.activate_selected(true)
+    fn on_key(
+        self: &Rc<Self>,
+        key: gdk::Key,
+        keycode: u32,
+        state: gdk::ModifierType,
+    ) -> glib::Propagation {
+        self.show_picks(state | modifier_of(key));
+        let Some(command) = config::current().keys.command(key, keycode, state) else {
+            return glib::Propagation::Proceed;
+        };
+        match command {
+            Command::Next => self.move_selection(1),
+            Command::Previous => self.move_selection(-1),
+            Command::NextPage => self.move_selection(self.page()),
+            Command::PreviousPage => self.move_selection(-self.page()),
+            Command::Alternate => self.activate_selected(true),
+            Command::Back if self.in_palette() => self.set_query(""),
+            Command::Back => self.dismiss(),
+            Command::Settings => self.set_query(&palette::PREFIX.to_string()),
+            Command::Pick(n) => {
+                self.activate_row(self.list.row_at_index(i32::from(n) - 1).as_ref(), false)
             }
-            gdk::Key::Down => self.move_selection(1),
-            gdk::Key::Up => self.move_selection(-1),
-            _ => return glib::Propagation::Proceed,
         }
         glib::Propagation::Stop
+    }
+
+    fn in_palette(&self) -> bool {
+        self.entry.text().trim_start().starts_with(palette::PREFIX)
+    }
+
+    fn set_query(&self, text: &str) {
+        self.entry.set_text(text);
+        self.entry.set_position(-1);
+    }
+
+    /// The rows show their number while the modifier of the pick keys is held. `state` is the
+    /// one after the key event: an event carries the modifiers from before it.
+    fn show_picks(&self, state: gdk::ModifierType) {
+        let keys = &config::current().keys;
+        let held = config::modifiers(state);
+        let picking = keys
+            .accels(Command::Pick(1))
+            .any(|(_, mods)| !mods.is_empty() && mods == held);
+        if picking {
+            self.win.add_css_class("picking");
+        } else {
+            self.win.remove_css_class("picking");
+        }
+    }
+
+    /// How many rows fit in the list, for the page keys.
+    fn page(&self) -> i32 {
+        let row = self.list.selected_row().map_or(0, |r| r.height());
+        if row == 0 {
+            1
+        } else {
+            (self.scroller.height() / row).max(1)
+        }
     }
 
     /// Move the selection while keeping keyboard focus in the entry.
@@ -238,6 +315,49 @@ impl Ui {
                 .vadjustment()
                 .clamp_page(bounds.y() as f64, (bounds.y() + bounds.height()) as f64);
         }
+        self.sync_preview();
+    }
+
+    fn selected_hit(&self) -> Option<Rc<Hit>> {
+        let index = self.list.selected_row()?.index() as usize;
+        self.results.borrow().get(index).cloned()
+    }
+
+    /// Shows what the selected row would set, or goes back to `spot.conf` when it sets
+    /// nothing. Only for a selection the user moved: the first row of a list is selected
+    /// without anyone asking for it.
+    fn sync_preview(&self) {
+        match self
+            .selected_hit()
+            .as_ref()
+            .and_then(|hit| hit.preview.as_ref())
+        {
+            Some(preview) => {
+                preview();
+                self.previewing.set(true);
+            }
+            None if self.previewing.replace(false) => style::revert(),
+            None => {}
+        }
+    }
+
+    fn update_footer(&self) {
+        let Some(hit) = self.selected_hit() else {
+            return; // the list is being filled again
+        };
+        let keys = &config::current().keys;
+        let mut actions = format!("↵ {}", hit.verb);
+        if let (Some((name, _)), Some(key)) = (&hit.alt, keys.label(Command::Alternate)) {
+            actions += &format!("     {key} {name}");
+        }
+        self.actions.set_label(&actions);
+        let (command, name) = if self.in_palette() {
+            (Command::Back, tr("Back"))
+        } else {
+            (Command::Settings, tr("Settings"))
+        };
+        let way_out = keys.label(command).map(|key| format!("{key} {name}"));
+        self.way_out.set_label(&way_out.unwrap_or_default());
     }
 
     // -- search ----------------------------------------------------------
@@ -276,6 +396,11 @@ impl Ui {
             self.sections.borrow_mut().insert("prefix".into(), hits);
             return self.render();
         }
+        let words = palette::word_rows(&query)
+            .into_iter()
+            .map(Rc::new)
+            .collect();
+        self.sections.borrow_mut().insert("palette".into(), words);
         let ui = self.clone();
         glib::timeout_add_local_once(FALLBACK_DELAY, move || {
             if ui.generation.get() == generation {
@@ -315,7 +440,7 @@ impl Ui {
 
     fn render(&self) {
         let sections = self.sections.borrow();
-        let order = ["prefix", "apps"]
+        let order = ["prefix", "apps", "palette"]
             .into_iter()
             .chain(self.data.providers.iter().map(|p| p.desktop_id.as_str()))
             .chain(["files"]);
@@ -336,6 +461,8 @@ impl Ui {
                 results.extend(prefix::web_fallback(&query).map(Rc::new));
             }
         }
+        // last, so that Enter never lands on them while looking for something else
+        results.extend(palette::error_rows().into_iter().map(Rc::new));
         drop(sections);
         self.show_results(results);
     }
@@ -357,6 +484,7 @@ impl Ui {
                         subtitle: app.description.clone(),
                         kind: tr("Application"),
                         icon: app.icon.clone(),
+                        verb: tr("Launch"),
                         activate: Box::new(move |ctx| {
                             info.launch(&[], Some(ctx))?;
                             if let Err(error) = data.usage.borrow_mut().bump(&id) {
@@ -364,8 +492,7 @@ impl Ui {
                             }
                             Ok(())
                         }),
-                        alt: None,
-                        path: None,
+                        ..Default::default()
                     }
                 })
             })
@@ -426,33 +553,37 @@ impl Ui {
         // keep the user's pick when late results land
         let index = self.list.selected_row().map_or(0, |r| r.index());
         self.list.remove_all();
-        for hit in &results {
-            self.list.append(&row_for(hit));
+        for (position, hit) in results.iter().enumerate() {
+            self.list.append(&row_for(hit, position));
         }
         let visible = !results.is_empty();
         let last = results.len() as i32 - 1;
         *self.results.borrow_mut() = results;
         self.scroller.set_visible(visible);
         self.sep.set_visible(visible);
+        self.footer.set_visible(visible);
         if visible {
             self.list
                 .select_row(self.list.row_at_index(index.min(last)).as_ref());
+        }
+        if self.previewing.get() {
+            self.sync_preview(); // the row under the selection may have changed
         }
     }
 
     // -- launching -------------------------------------------------------
 
-    fn activate_selected(&self, alt: bool) {
+    fn activate_selected(self: &Rc<Self>, alt: bool) {
         self.activate_row(self.list.selected_row().as_ref(), alt);
     }
 
-    fn activate_row(&self, row: Option<&gtk::ListBoxRow>, alt: bool) {
+    fn activate_row(self: &Rc<Self>, row: Option<&gtk::ListBoxRow>, alt: bool) {
         let Some(hit) = row.and_then(|r| self.results.borrow().get(r.index() as usize).cloned())
         else {
             return;
         };
         let Some(action) = (if alt {
-            hit.alt.as_ref()
+            hit.alt.as_ref().map(|(_, action)| action)
         } else {
             Some(&hit.activate)
         }) else {
@@ -461,7 +592,24 @@ impl Ui {
         if let Err(error) = action(&WidgetExt::display(&self.win).app_launch_context()) {
             report_launch_error(&error);
         }
-        self.dismiss();
+        match &hit.then {
+            Then::Close => self.dismiss(),
+            Then::Refresh => self.search(),
+            Then::Query(text) => self.set_query(text),
+        }
+    }
+}
+
+/// The modifier a key is, if it is one.
+fn modifier_of(key: gdk::Key) -> gdk::ModifierType {
+    match key {
+        gdk::Key::Control_L | gdk::Key::Control_R => gdk::ModifierType::CONTROL_MASK,
+        gdk::Key::Alt_L | gdk::Key::Alt_R | gdk::Key::Meta_L | gdk::Key::Meta_R => {
+            gdk::ModifierType::ALT_MASK
+        }
+        gdk::Key::Shift_L | gdk::Key::Shift_R => gdk::ModifierType::SHIFT_MASK,
+        gdk::Key::Super_L | gdk::Key::Super_R => gdk::ModifierType::SUPER_MASK,
+        _ => gdk::ModifierType::empty(),
     }
 }
 
@@ -477,7 +625,7 @@ fn label(text: &str, css: Option<&str>) -> gtk::Label {
     label
 }
 
-fn row_for(hit: &Hit) -> gtk::ListBoxRow {
+fn row_for(hit: &Hit, position: usize) -> gtk::ListBoxRow {
     let row_box = gtk::Box::new(gtk::Orientation::Horizontal, 12);
     let icon = gtk::Image::from_gicon(&hit.icon);
     icon.add_css_class("spot-icon");
@@ -494,10 +642,21 @@ fn row_for(hit: &Hit) -> gtk::ListBoxRow {
     }
     row_box.append(&texts);
 
-    let kind = gtk::Label::new(Some(&hit.kind));
-    kind.add_css_class("spot-kind");
-    kind.set_valign(gtk::Align::Center);
-    row_box.append(&kind);
+    if !hit.kind.is_empty() {
+        let kind = gtk::Label::new(Some(&hit.kind));
+        kind.add_css_class("spot-kind");
+        kind.set_valign(gtk::Align::Center);
+        row_box.append(&kind);
+    }
+    // the first nine can be launched by their number
+    let pick = if position < 9 {
+        (position + 1).to_string()
+    } else {
+        String::new()
+    };
+    let pick = gtk::Label::new(Some(&pick));
+    pick.add_css_class("spot-pick");
+    row_box.append(&pick);
 
     gtk::ListBoxRow::builder()
         .css_classes(["spot-row"])

@@ -7,17 +7,52 @@ use gtk::{gdk, gio, glib};
 
 pub type Action = Box<dyn Fn(&gdk::AppLaunchContext) -> Result<(), glib::Error>>;
 
-/// One result row. `activate` launches it; `alt` is the Ctrl+Enter action.
+/// What the window does once a row's action has run.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub enum Then {
+    #[default]
+    Close,
+    /// Stay open and list the results again: a setting was changed.
+    Refresh,
+    /// Stay open with this text in the entry.
+    Query(String),
+}
+
+/// One result row. `activate` is what Enter does and `verb` its name in the footer.
 pub struct Hit {
     pub score: i32,
     pub title: String,
     pub subtitle: String,
     pub kind: String,
     pub icon: gio::Icon,
+    pub verb: String,
     pub activate: Action,
-    pub alt: Option<Action>,
+    /// The second action and its name: the containing folder of a file…
+    pub alt: Option<(String, Action)>,
     /// Local file results: lets duplicates across sources collapse.
     pub path: Option<String>,
+    /// Settings: shows the value while the row is selected, without saving it.
+    pub preview: Option<Box<dyn Fn()>>,
+    pub then: Then,
+}
+
+/// A row that opens nothing: every source states what differs from it.
+impl Default for Hit {
+    fn default() -> Self {
+        Hit {
+            score: 0,
+            title: String::new(),
+            subtitle: String::new(),
+            kind: String::new(),
+            icon: themed("application-x-executable"),
+            verb: tr("Open"),
+            activate: Box::new(|_| Ok(())),
+            alt: None,
+            path: None,
+            preview: None,
+            then: Then::Close,
+        }
+    }
 }
 
 /// Prints a failed launch the way every action reports it.
@@ -129,11 +164,11 @@ pub fn system_results(query: &str) -> Vec<Hit> {
                 subtitle: String::new(),
                 kind: tr("System"),
                 icon: themed(icon),
+                verb: tr("Run"),
                 activate: Box::new(move |_| {
                     dbus_call(bus, name, path, interface, method, args.clone())
                 }),
-                alt: None,
-                path: None,
+                ..Default::default()
             },
         )
         .collect()
@@ -150,9 +185,9 @@ pub fn command_result(query: &str) -> Option<Hit> {
         subtitle: tr("Runs in the background, without a terminal"),
         kind: tr("Command"),
         icon: themed("utilities-terminal-symbolic"),
+        verb: tr("Run"),
         activate: Box::new(move |ctx| run_command(&command, Some(ctx))),
-        alt: None,
-        path: None,
+        ..Default::default()
     })
 }
 
@@ -201,8 +236,12 @@ pub fn file_result(path: &str, score: i32) -> Option<Hit> {
         activate: Box::new(move |ctx| {
             gio::AppInfo::launch_default_for_uri(&gio::File::for_path(&open).uri(), Some(ctx))
         }),
-        alt: Some(Box::new(move |ctx| reveal_path(&reveal, ctx))),
+        alt: Some((
+            tr("Open folder"),
+            Box::new(move |ctx| reveal_path(&reveal, ctx)),
+        )),
         path: Some(path.to_owned()),
+        ..Default::default()
     })
 }
 

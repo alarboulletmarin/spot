@@ -4,7 +4,7 @@ Application and file launcher for Linux, in Rust + GTK4 / libadwaita. Press a sh
 
 ![spot, default style, light and dark](docs/screenshots/default.png)
 
-[Features](#features) · [Install](#install) · [First run](#first-run) · [Using spot](#using-spot) · [Prefixes](#prefixes) · [Appearance](#appearance) · [Compatibility](#compatibility) · [Troubleshooting](#troubleshooting) · [How it works](#how-it-works) · [Development](#development)
+[Features](#features) · [Install](#install) · [First run](#first-run) · [Using spot](#using-spot) · [Prefixes](#prefixes) · [Settings](#settings) · [Appearance](#appearance) · [Compatibility](#compatibility) · [Troubleshooting](#troubleshooting) · [How it works](#how-it-works) · [Development](#development)
 
 ## Features
 
@@ -134,10 +134,15 @@ Press your shortcut and start typing.
 | Key | Action |
 |---|---|
 | your shortcut | open, or close when already open |
-| `↑` `↓` | navigate |
+| `↑` `↓`, `Ctrl + P` `Ctrl + N`, `Ctrl + K` `Ctrl + J` | navigate |
+| `Page Up` `Page Down` | navigate a page at a time |
 | `Enter` | launch or open |
-| `Ctrl + Enter` | open the folder containing the file |
-| `Esc` | close |
+| `Ctrl + Enter` | the second action of the result: the folder containing the file… |
+| `Alt + 1` … `Alt + 9` | launch the result with that number; the numbers show while `Alt` is held |
+| `Ctrl + ,` | spot's settings |
+| `Esc` | close, or leave the settings |
+
+The line under the results says what `Enter` and `Ctrl + Enter` do to the selected one. Every key but `Enter` can be changed, see [Keys](#keys).
 
 The window also closes as soon as it loses focus.
 
@@ -150,6 +155,7 @@ The window also closes as soon as it loses focus.
 | `zzzqq` | nothing matches: after a third of a second, a last row “Search for…” hands the text to your browser. Below the command row, if there is one |
 | `!git status` | a prefix: the command runs in a terminal, see [Prefixes](#prefixes) |
 | `search: rust gtk4` | a prefix: your browser searches |
+| `>`, or `theme`, `settings`, `shortcuts` | spot's own settings, see [Settings](#settings) |
 
 ## Prefixes
 
@@ -160,6 +166,7 @@ A prefix turns what you type into an instruction. While one is there, spot searc
 | `!git status` | runs the command in a terminal, which stays open afterwards | the same, but the terminal closes when the command ends |
 | `search: rust gtk4` | your default browser searches for it, with its own search engine | |
 | `https://example.com` or `www.example.com` | opens the address in your default browser | |
+| `>` | lists spot's settings and shortcuts, see [Settings](#settings) | |
 
 The space after the colon is optional (`search:rust`), and so is the case.
 
@@ -177,7 +184,7 @@ This comes from the sources of Firefox, Chromium and GNOME Web, where both forms
 
 To use something else than the browser's own search, there is nothing to configure in spot: set the engine in your browser.
 
-The terminal can be named in `~/.config/spot/spot.conf`; without it, spot picks the default one as described above. The file is read when you use it, so there is nothing to restart.
+The terminal can be named in `~/.config/spot/spot.conf`; without it, spot picks the default one as described above. The file is watched, so there is nothing to restart.
 
 ```ini
 # The terminal for `!`, then the argument that introduces the program
@@ -185,18 +192,63 @@ The terminal can be named in `~/.config/spot/spot.conf`; without it, spot picks 
 Command=alacritty -e
 ```
 
+## Settings
+
+Everything is set in one file, `~/.config/spot/spot.conf`. It is watched: save it and the open window changes, no restart. There is no settings window; the launcher itself lists the settings.
+
+Type `>` (or press `Ctrl + ,`) to see them all, and go on typing to narrow the list: `>dark`, `>palette`, `>keys`.
+
+| Row | Enter |
+|---|---|
+| `Style: glass`, `Colour scheme: dark`, `Palette: nord`… | writes the value to `spot.conf`. Moving onto the row with the arrows already shows it, without saving: `Esc` puts things back |
+| `Open spot.conf` | opens the file in your editor. If there is none yet, it is created with every key and its default, commented out |
+| `Next result`, `Settings`… | the shortcuts and their keys; Enter opens `spot.conf` to change them |
+
+`Esc` leaves the settings, and a second `Esc` closes the window.
+
+A whole word does the same in an ordinary search: `theme` lists the styles, colour schemes and palettes, `shortcuts` the keys, `settings` leads to the list, and a value such as `glass` or `nord` brings up its row.
+
+When a value in `spot.conf` is wrong (`Style=glas`), the default is used for that key and a row at the end of the results says so, as soon as the window opens. Enter on it opens the file.
+
+When spot writes a setting, it changes that one line and leaves the rest of the file, comments included, as it was.
+
+### Keys
+
+Each command takes one or more keys, written as GTK does and separated by `;`. A command that is not named keeps its defaults, and an empty value takes its keys away.
+
+```ini
+[Keys]
+Next=Down;<Ctrl>n
+Previous=Up;<Ctrl>p
+Settings=<Ctrl>comma;F2
+Pick1=<Alt>1
+```
+
+| Command | Default |
+|---|---|
+| `Next`, `Previous` | `Down;<Ctrl>n;<Ctrl>j`, `Up;<Ctrl>p;<Ctrl>k` |
+| `NextPage`, `PreviousPage` | `Page_Down`, `Page_Up` |
+| `Alternate` | `<Ctrl>Return;<Ctrl>KP_Enter` |
+| `Back` | `Escape` |
+| `Settings` | `<Ctrl>comma` |
+| `Pick1` … `Pick9` | `<Alt>1` … `<Alt>9` |
+
+The modifiers are `<Ctrl>`, `<Alt>`, `<Shift>` and `<Super>`; the key is a letter, a digit or a GDK key name (`Page_Down`, `comma`, `F2`). The digit keys count by position, so `<Alt>1` is the first key of the row on AZERTY too. `Enter` cannot be changed, and neither can the shortcut that opens spot: that one belongs to your desktop, see [First run](#first-run).
+
 ## Appearance
 
 Spot takes its colours from the desktop. Light or dark follows the system setting, and so does the accent colour where libadwaita publishes it (libadwaita 1.6+, for example GNOME 47+; older versions use Adwaita blue). Like every libadwaita application, it does not follow a custom GTK theme.
 
-Choose a style and a colour scheme in `~/.config/spot/spot.conf`. The file is watched: save it and the open window changes, no restart.
+Choose a style, a colour scheme and a palette with `>` or `theme` (see [Settings](#settings)), or in `spot.conf`:
 
 ```ini
-# Style: default, glass or compact
+# Style: default, glass, compact, flat, rounded or mono
 # ColorScheme: system, light or dark
+# Palette: none, a built-in one (catppuccin, nord…) or one of your own
 [Appearance]
 Style=glass
 ColorScheme=system
+Palette=catppuccin
 ```
 
 Comments go on their own line: this format has no end-of-line comments.
@@ -212,6 +264,28 @@ Comments go on their own line: this format has no end-of-line comments.
 **`compact`**: denser rows, smaller icons, the selection is a neutral tint rather than the accent colour.
 
 ![spot, compact style, light and dark](docs/screenshots/compact.png)
+
+**`flat`**: square corners, no shadow, rows from edge to edge.
+
+**`rounded`**: a pill for a card and pills for rows.
+
+**`mono`**: fixed-width type and the selection in reverse video, like a terminal.
+
+### Palettes
+
+A palette replaces the desktop's colours: background, text and accent. Twelve are built in, each with a light and a dark variant: `catppuccin`, `gruvbox`, `nord`, `solarized`, `dracula`, `tokyo-night`, `rose-pine`, `everforest`, `one`, `kanagawa`, `ayu` and `github`; `ColorScheme` (or the desktop, with `system`) chooses which. `none` goes back to the desktop's colours.
+
+Your own palette is a file `~/.config/spot/themes/<name>.css` that redefines the colours spot uses, and it is then listed with the others. `<name>-dark.css`, if there is one, is used instead when the window is dark. A file named after a built-in palette replaces it.
+
+```css
+@define-color window_bg_color #1a1b26;
+@define-color window_fg_color #c0caf5;
+@define-color accent_bg_color #7aa2f7;
+@define-color accent_color #7aa2f7;
+@define-color accent_fg_color #1a1b26;
+```
+
+A change to a palette file shows the next time the palette is selected or `spot.conf` is saved.
 
 ### Your own CSS
 
@@ -260,7 +334,7 @@ Requirements: GTK 4.12+, libadwaita 1, GLib, `plocate` for file search. Building
 
 **An application is missing.** It may be hidden on your desktop by `OnlyShowIn=` or `NoDisplay=` in its `.desktop` file.
 
-**A style or an option is ignored.** Run `spot --quit; spot-resident --daemon` in a terminal: a wrong value in `spot.conf` is reported there, and the default is used for that key.
+**A style, a key or an option is ignored.** A wrong value in `spot.conf` is reported by a row at the end of the results, and the default is used for that key. Mistakes in `style.css` are reported on the standard error only: run `spot --quit; spot-resident --daemon` in a terminal to see them.
 
 **`requires rustc 1.92` when building.** Your Rust is too old, install a newer one with [rustup](https://rustup.rs).
 
@@ -274,6 +348,7 @@ Requirements: GTK 4.12+, libadwaita 1, GLib, `plocate` for file search. Building
 - **Commands**: when nothing matches and the first word is a program on your `PATH`, Enter runs the line.
 - **Web search**: when nothing matches, a “Search for…” row is added once the sources have had 300 ms to answer, so it does not flash up for every query. It does what `search:` does.
 - **Prefixes**: checked before anything else; one that matches replaces the search. Addresses open with GIO's default handler for `https`. `search:` runs the default browser's own command (the `Exec` line of its desktop entry) with the words added, and terminal commands are launched the same way, through a generated application entry, which is what gives the new window the focus.
+- **Settings**: `spot.conf` is parsed in one place and watched. The rows of `>` preview a value by applying it without writing it, and Enter rewrites the one line of the file that holds it.
 - **System actions**: over D-Bus; restart, shut down and log out go through GNOME's confirmation dialog.
 - **Resident process**: the first invocation stays in the background with its window already created. Every later `spot` is a small GIO-only binary that asks it over D-Bus to show that window, without loading GTK. On the author's machine that call takes about 10 ms (median), and the very first opening after login is as fast as the next ones (the window is built at startup instead of on first use, which used to cost ~1.9 s).
 

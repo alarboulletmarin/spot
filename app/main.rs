@@ -8,7 +8,10 @@
 //! Everything else (calculator, settings panels…): the GNOME Shell search
 //! providers, the same D-Bus services the Activities overview queries.
 //! Prefixes:     `!command` runs in a terminal, `search: text` opens a web search.
+//! Settings:     `>` lists them, `spot.conf` holds them.
 
+mod config;
+mod palette;
 mod prefix;
 mod providers;
 mod results;
@@ -108,7 +111,9 @@ mod tests {
     #[test]
     fn translations_cover_source_strings() {
         let sources = [
+            include_str!("config.rs"),
             include_str!("main.rs"),
+            include_str!("palette.rs"),
             include_str!("prefix.rs"),
             include_str!("providers.rs"),
             include_str!("results.rs"),

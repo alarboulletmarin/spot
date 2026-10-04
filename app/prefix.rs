@@ -2,13 +2,15 @@
 //!
 //! - `!ls -la` runs the command in a terminal;
 //! - `search: rust gtk` hands the text to the default browser, which searches with its own engine;
-//! - an address (`https://…`, `www.…`) opens in the default browser.
+//! - an address (`https://…`, `www.…`) opens in the default browser;
+//! - `>` lists spot's own settings and shortcuts, see `palette`.
 //!
 //! A prefix claims the whole query: while it is there, nothing else is searched.
 
+use crate::config::{self, CONFIG_FILE};
+use crate::palette;
 use crate::results::{Hit, themed};
 use crate::search::home;
-use crate::style::{CONFIG_FILE, config_dir};
 use crate::tr;
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib};
@@ -20,6 +22,8 @@ enum Intent {
     /// `search:`, handed to the browser as it is.
     Search(String),
     Url(String),
+    /// `>`, with the words that narrow the palette down.
+    Palette(String),
 }
 
 /// The rows for a query that starts with a prefix, `None` for an ordinary query.
@@ -31,6 +35,7 @@ pub fn hits(query: &str) -> Option<Vec<Hit>> {
         Intent::Terminal(command) if !command.is_empty() => vec![terminal_hit(command)],
         Intent::Search(text) if !text.is_empty() => vec![browser_search_hit(&text)],
         Intent::Url(url) => vec![url_hit(url)],
+        Intent::Palette(filter) => palette::rows(&filter),
         _ => vec![],
     })
 }
@@ -46,6 +51,9 @@ fn parse(query: &str) -> Option<Intent> {
     let query = query.trim();
     if let Some(command) = query.strip_prefix('!') {
         return Some(Intent::Terminal(command.trim().to_owned()));
+    }
+    if let Some(filter) = query.strip_prefix(palette::PREFIX) {
+        return Some(Intent::Palette(filter.trim().to_owned()));
     }
     if let Some(url) = web_address(query) {
         return Some(Intent::Url(url));
@@ -88,8 +96,7 @@ fn url_hit(url: String) -> Hit {
         kind: tr("Web"),
         icon: browser_icon(),
         activate: Box::new(move |ctx| gio::AppInfo::launch_default_for_uri(&url, Some(ctx))),
-        alt: None,
-        path: None,
+        ..Default::default()
     }
 }
 
@@ -183,6 +190,7 @@ fn browser_search_hit(text: &str) -> Hit {
         },
         kind: tr("Web"),
         icon: browser_icon(),
+        verb: tr("Search"),
         activate: Box::new(move |ctx| match &argv {
             Some(argv) => launch_argv(&name, argv, None, Some(ctx)),
             None => Err(glib::Error::new(
@@ -190,8 +198,7 @@ fn browser_search_hit(text: &str) -> Hit {
                 &tr("no web browser found"),
             )),
         }),
-        alt: None,
-        path: None,
+        ..Default::default()
     }
 }
 
@@ -223,14 +230,16 @@ fn terminal_hit(command: String) -> Hit {
     Hit {
         score: 0,
         title: tr("Run “%s” in a terminal").replacen("%s", &command, 1),
-        subtitle: tr("The terminal stays open · Ctrl+Enter closes it when the command ends"),
+        subtitle: tr("The terminal stays open afterwards"),
         kind: tr("Terminal"),
         icon: themed("utilities-terminal-symbolic"),
+        verb: tr("Run"),
         activate: Box::new(move |ctx| run_in_terminal(&keep_open, true, Some(ctx))),
-        alt: Some(Box::new(move |ctx| {
-            run_in_terminal(&close, false, Some(ctx))
-        })),
-        path: None,
+        alt: Some((
+            tr("Run, then close the terminal"),
+            Box::new(move |ctx| run_in_terminal(&close, false, Some(ctx))),
+        )),
+        ..Default::default()
     }
 }
 
@@ -305,12 +314,7 @@ fn exec_line(argv: &[String]) -> String {
 /// The terminal to use, with the arguments that precede the program: the one named in
 /// `spot.conf`, else the system's default.
 fn find_terminal() -> Option<Vec<String>> {
-    let configured = read_config().string("Terminal", "Command").ok();
-    if let Some(command) = configured
-        .as_deref()
-        .map(str::trim)
-        .filter(|c| !c.is_empty())
-    {
+    if let Some(command) = config::current().terminal.as_deref() {
         match resolve_terminal(command) {
             Some(argv) => return Some(argv),
             None => eprintln!("spot: terminal “{command}” from {CONFIG_FILE} not found"),
@@ -362,30 +366,10 @@ fn resolve_terminal(command: &str) -> Option<Vec<String>> {
     Some(argv)
 }
 
-/// `spot.conf`, or an empty key file: a broken one is already reported by the style code.
-fn read_config() -> glib::KeyFile {
-    let keyfile = glib::KeyFile::new();
-    if keyfile
-        .load_from_file(config_dir().join(CONFIG_FILE), glib::KeyFileFlags::NONE)
-        .is_err()
-    {
-        return glib::KeyFile::new();
-    }
-    keyfile
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::time::{Duration, Instant};
-
-    fn keyfile(data: &str) -> glib::KeyFile {
-        let keyfile = glib::KeyFile::new();
-        keyfile
-            .load_from_data(data, glib::KeyFileFlags::NONE)
-            .unwrap();
-        keyfile
-    }
 
     #[test]
     fn bang_runs_in_a_terminal() {
@@ -693,17 +677,10 @@ mod tests {
         std::fs::remove_dir_all(dir).unwrap();
     }
 
-    /// The README's example is what users copy: it has to be valid.
     #[test]
-    fn readme_example_parses() {
-        let readme = include_str!("../README.md");
-        let block = readme
-            .split("```ini\n")
-            .skip(1) // what comes before the first example is prose, which may mention the group
-            .filter_map(|rest| rest.split("```").next())
-            .find(|block| block.contains("[Terminal]"))
-            .expect("a [Terminal] example in the README");
-        let command = keyfile(block).string("Terminal", "Command").unwrap();
-        assert!(!command.trim().is_empty());
+    fn angle_bracket_opens_the_palette() {
+        assert_eq!(parse(">"), Some(Intent::Palette(String::new())));
+        assert_eq!(parse(" > dark "), Some(Intent::Palette("dark".into())));
+        assert_eq!(parse("a > b"), None);
     }
 }

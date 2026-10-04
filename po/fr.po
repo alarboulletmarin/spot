@@ -70,8 +70,8 @@ msgstr "Ouvrir dans le navigateur par défaut"
 msgid "Run “%s” in a terminal"
 msgstr "Exécuter « %s » dans un terminal"
 
-msgid "The terminal stays open · Ctrl+Enter closes it when the command ends"
-msgstr "Le terminal reste ouvert · Ctrl+Entrée le ferme à la fin de la commande"
+msgid "The terminal stays open afterwards"
+msgstr "Le terminal reste ouvert ensuite"
 
 msgid "Terminal"
 msgstr "Terminal"
@@ -85,3 +85,101 @@ msgstr "Avec le moteur de recherche de %s"
 
 msgid "no web browser found"
 msgstr "aucun navigateur web trouvé"
+
+msgid "spot.conf cannot be read"
+msgstr "spot.conf est illisible"
+
+#, c-format
+msgid "spot.conf: unknown %s “%s”"
+msgstr "spot.conf : %s inconnu « %s »"
+
+#, c-format
+msgid "spot.conf: invalid shortcut “%s”"
+msgstr "spot.conf : raccourci invalide « %s »"
+
+msgid "Settings"
+msgstr "Réglages"
+
+msgid "theme style appearance"
+msgstr "thème theme style apparence appearance"
+
+msgid "Style"
+msgstr "Style"
+
+msgid "Colour scheme"
+msgstr "Jeu de couleurs"
+
+msgid "Palette"
+msgstr "Palette"
+
+msgid "settings preferences config"
+msgstr "réglages paramètres préférences settings preferences config"
+
+msgid "spot settings"
+msgstr "Réglages de spot"
+
+msgid "Style, colours and shortcuts"
+msgstr "Style, couleurs et raccourcis"
+
+msgid "Open spot.conf"
+msgstr "Ouvrir spot.conf"
+
+msgid "shortcuts keys keyboard"
+msgstr "raccourcis touches clavier shortcuts keys keyboard"
+
+msgid "No key"
+msgstr "Aucune touche"
+
+msgid "Shortcut"
+msgstr "Raccourci"
+
+msgid "Change in spot.conf"
+msgstr "Modifier dans spot.conf"
+
+msgid "Next result"
+msgstr "Résultat suivant"
+
+msgid "Previous result"
+msgstr "Résultat précédent"
+
+msgid "Next page"
+msgstr "Page suivante"
+
+msgid "Previous page"
+msgstr "Page précédente"
+
+msgid "Second action of the result"
+msgstr "Seconde action du résultat"
+
+msgid "Leave the settings, or close"
+msgstr "Quitter les réglages, ou fermer"
+
+msgid "Launch the result with that number"
+msgstr "Lancer le résultat de ce numéro"
+
+msgid "Current"
+msgstr "Actuel"
+
+msgid "Apply"
+msgstr "Appliquer"
+
+msgid "Search"
+msgstr "Rechercher"
+
+msgid "Run"
+msgstr "Exécuter"
+
+msgid "Run, then close the terminal"
+msgstr "Exécuter, puis fermer le terminal"
+
+msgid "Open"
+msgstr "Ouvrir"
+
+msgid "Open folder"
+msgstr "Ouvrir le dossier"
+
+msgid "Back"
+msgstr "Retour"
+
+msgid "Launch"
+msgstr "Lancer"

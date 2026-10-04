@@ -75,7 +75,7 @@ msgstr ""
 msgid "Run “%s” in a terminal"
 msgstr ""
 
-msgid "The terminal stays open · Ctrl+Enter closes it when the command ends"
+msgid "The terminal stays open afterwards"
 msgstr ""
 
 msgid "Terminal"
@@ -89,4 +89,102 @@ msgid "With the search engine of %s"
 msgstr ""
 
 msgid "no web browser found"
+msgstr ""
+
+msgid "spot.conf cannot be read"
+msgstr ""
+
+#, c-format
+msgid "spot.conf: unknown %s “%s”"
+msgstr ""
+
+#, c-format
+msgid "spot.conf: invalid shortcut “%s”"
+msgstr ""
+
+msgid "Settings"
+msgstr ""
+
+msgid "theme style appearance"
+msgstr ""
+
+msgid "Style"
+msgstr ""
+
+msgid "Colour scheme"
+msgstr ""
+
+msgid "Palette"
+msgstr ""
+
+msgid "settings preferences config"
+msgstr ""
+
+msgid "spot settings"
+msgstr ""
+
+msgid "Style, colours and shortcuts"
+msgstr ""
+
+msgid "Open spot.conf"
+msgstr ""
+
+msgid "shortcuts keys keyboard"
+msgstr ""
+
+msgid "No key"
+msgstr ""
+
+msgid "Shortcut"
+msgstr ""
+
+msgid "Change in spot.conf"
+msgstr ""
+
+msgid "Next result"
+msgstr ""
+
+msgid "Previous result"
+msgstr ""
+
+msgid "Next page"
+msgstr ""
+
+msgid "Previous page"
+msgstr ""
+
+msgid "Second action of the result"
+msgstr ""
+
+msgid "Leave the settings, or close"
+msgstr ""
+
+msgid "Launch the result with that number"
+msgstr ""
+
+msgid "Current"
+msgstr ""
+
+msgid "Apply"
+msgstr ""
+
+msgid "Search"
+msgstr ""
+
+msgid "Run"
+msgstr ""
+
+msgid "Run, then close the terminal"
+msgstr ""
+
+msgid "Open"
+msgstr ""
+
+msgid "Open folder"
+msgstr ""
+
+msgid "Back"
+msgstr ""
+
+msgid "Launch"
 msgstr ""

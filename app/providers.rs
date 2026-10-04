@@ -141,8 +141,7 @@ impl SearchProvider {
                     provider.call("ActivateResult", args, None, None, |_| {});
                     Ok(())
                 }),
-                alt: None,
-                path: None,
+                ..Default::default()
             });
         }
         hits
