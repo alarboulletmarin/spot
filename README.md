@@ -32,10 +32,11 @@ On Arch there is a prebuilt package; everywhere else spot is compiled on your ma
 
 ### Arch Linux
 
-Every release ships a ready-to-install package (no compiler needed). It installs as `spot-launcher`, which pacman then tracks like any other:
+Every release ships a ready-to-install package (no compiler needed). It installs as `spot-launcher`, which pacman then tracks like any other. The package is not signed, so download it first: given a URL, pacman looks for a `.sig` file and warns when there is none.
 
 ```bash
-sudo pacman -U https://github.com/alarboulletmarin/spot/releases/latest/download/spot-launcher-x86_64.pkg.tar.zst
+curl -LO https://github.com/alarboulletmarin/spot/releases/latest/download/spot-launcher-x86_64.pkg.tar.zst
+sudo pacman -U ./spot-launcher-x86_64.pkg.tar.zst
 ```
 
 To follow `main` instead, build the development package from a checkout (needs `cargo`, it conflicts with `spot-launcher`):
@@ -94,7 +95,7 @@ sudo make install       # PREFIX=/usr/local by default, PREFIX=/usr for a system
 
 | Installed with | Upgrade |
 |---|---|
-| Arch, prebuilt package | run the `pacman -U` command above again |
+| Arch, prebuilt package | run the two commands above again |
 | Arch, `spot-launcher-git` | `git pull` then `makepkg -si` in `aur/spot-launcher-git` |
 | `make install` | `git pull`, then `make` and `sudo make install` |
 
