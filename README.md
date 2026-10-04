@@ -99,6 +99,8 @@ sudo make install       # PREFIX=/usr/local by default, PREFIX=/usr for a system
 | Arch, `spot-launcher-git` | `git pull` then `makepkg -si` in `aur/spot-launcher-git` |
 | `make install` | `git pull`, then `make` and `sudo make install` |
 
+If `spot --version` still shows an old number after upgrading, a copy installed earlier with `make install` is ahead of the package in your `PATH`: `type -a spot` lists them. Remove it with `sudo make uninstall` (same `PREFIX` as the install, `/usr/local` by default).
+
 Then restart the background process so the new binary runs:
 
 ```bash

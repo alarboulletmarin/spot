@@ -19,8 +19,16 @@ install:
 	  msgfmt -c $$po -o $(DESTDIR)$(PREFIX)/share/locale/$$lang/LC_MESSAGES/spot.mo; \
 	done
 
+uninstall:
+	rm -f $(DESTDIR)$(PREFIX)/bin/spot $(DESTDIR)$(PREFIX)/bin/spot-resident \
+	  $(DESTDIR)$(PREFIX)/share/applications/dev.andrea.Spot.desktop \
+	  $(DESTDIR)/etc/xdg/autostart/dev.andrea.Spot-daemon.desktop \
+	  $(DESTDIR)$(PREFIX)/share/icons/hicolor/scalable/apps/dev.andrea.Spot.svg \
+	  $(DESTDIR)$(PREFIX)/share/locale/*/LC_MESSAGES/spot.mo
+	rm -rf $(DESTDIR)$(PREFIX)/share/licenses/spot-launcher
+
 test:
 	cargo test --locked
 	for po in $(PO); do msgfmt -c $$po -o /dev/null; done
 
-.PHONY: all install test
+.PHONY: all install uninstall test
