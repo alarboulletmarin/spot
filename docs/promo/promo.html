@@ -75,7 +75,7 @@
 <body>
 <div id="stage">
   <div id="cam">
-    <div id="bgwrap" class="abs" style="inset:0;width:1920px;height:1080px">
+    <div id="bgwrap" class="abs" style="inset:0">
       <div id="bg"></div>
       <div class="blob" id="b1"></div>
       <div class="blob" id="b2"></div>
@@ -89,6 +89,12 @@
 </div>
 
 <script>
+/* ---------- format: 16:9 by default, 9:16 with #vertical ---------- */
+const V = /vertical/.test(location.hash + location.search);
+const W = V ? 1080 : 1920, H = V ? 1920 : 1080, MX = W / 2, MY = H / 2;
+for (const e of [document.documentElement, document.body]) { e.style.width = W + 'px'; e.style.height = H + 'px'; }
+if (V) document.head.insertAdjacentHTML('beforeend', '<style>.word { font-size: 210px !important; } .vline { left: 80px !important; }</style>');
+
 /* ---------- maths ---------- */
 const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
 const P = (t, a, b) => clamp((t - a) / (b - a));
@@ -254,7 +260,8 @@ const flash = mk('div', 'abs', layer); st(flash, { borderRadius: '50%', backgrou
 function callout(side, html) {
   const c = mk('div', 'callout', layer); const ln = mk('div', 'ln', c); const dot = mk('div', 'dot', c);
   const body = mk('div', '', c, html); st(body, { position: 'absolute', top: '0', width: '420px' });
-  if (side === 'L') st(body, { right: '0', textAlign: 'right' }); else st(body, { left: '0' });
+  if (V) { side = 'T'; st(body, { left: '-450px', width: '900px', textAlign: 'center' }); }
+  else if (side === 'L') st(body, { right: '0', textAlign: 'right' }); else st(body, { left: '0' });
   return { c, ln, dot, body, side, lines: [...body.querySelectorAll('.m > span')] };
 }
 const CA = callout('L', `<div class="m"><span class="disp" style="font:800 150px 'Inter Display';letter-spacing:-.05em;line-height:1"><span id="ms">10</span><span style="font-size:64px;letter-spacing:-.02em"> ms</span></span></div><div class="m"><span style="font:500 24px Inter;opacity:.85">to open the window</span></div><div class="m"><span class="mono" style="font-size:15px;opacity:.6;letter-spacing:.12em">MEDIAN · RESIDENT PROCESS</span></div>`);
@@ -263,7 +270,7 @@ const CB1 = callout('R', `<div class="m"><span class="mono" style="font:700 64px
 const CB2 = callout('R', `<div class="m"><span class="mono" style="font:700 56px 'DejaVu Sans Mono'">search:</span></div><div class="m"><span style="font:600 32px Inter">your browser, its engine</span></div><div class="m"><span style="font:400 20px Inter;opacity:.7">spot never picks one for you</span></div>`);
 const CC = callout('L', `<div class="m"><span class="disp" style="font:800 96px 'Inter Display';letter-spacing:-.04em;line-height:1.05">12</span></div><div class="m"><span style="font:600 34px Inter">palettes, light and dark</span></div><div class="m"><span class="mono" id="palname" style="font:500 22px 'DejaVu Sans Mono';letter-spacing:.06em">catppuccin</span></div><div class="m"><span style="font:400 20px Inter;opacity:.7">previewed as you move, nothing saved</span></div>`);
 const palName = CC.body.querySelector('#palname');
-const CD = callout('R', `<div class="m"><span class="disp" style="font:800 96px 'Inter Display';letter-spacing:-.04em;line-height:1.05">6</span></div><div class="m"><span style="font:600 34px Inter">styles, one keystroke</span></div><div class="m"><span class="mono" id="stylist" style="font:500 20px 'DejaVu Sans Mono';letter-spacing:.04em;line-height:1.6;display:block;width:380px"></span></div>`);
+const CD = callout('R', `<div class="m"><span class="disp" style="font:800 96px 'Inter Display';letter-spacing:-.04em;line-height:1.05">6</span></div><div class="m"><span style="font:600 34px Inter">styles, one keystroke</span></div><div class="m"><span class="mono" id="stylist" style="font:500 20px 'DejaVu Sans Mono';letter-spacing:.04em;line-height:1.6;display:block;width:${V ? 900 : 380}px"></span></div>`);
 const styList = CD.body.querySelector('#stylist');
 const CE = callout('L', `<div class="m"><span style="font:600 32px Inter">Esc puts things back</span></div><div class="m"><span style="font:400 20px Inter;opacity:.7">spot.conf is only written on Enter</span></div>`);
 
@@ -288,11 +295,12 @@ const goneL = [...gone.querySelectorAll('.lt')];
 const goneR = rng(42); const goneV = goneL.map(() => ({ x: (goneR() - .5) * 900, y: (goneR() - .7) * 700, r: (goneR() - .5) * 120, s: .4 + goneR() * .9 }));
 
 /* ---------- build: values ---------- */
-const marq = [0, 1].map(i => { const m = mk('div', 'marq', over); m.textContent = (MARQUEE.join('  ·  ') + '  ·  ').repeat(3); st(m, { top: i ? '760px' : '60px' }); return m; });
-const VL = ['No account.', 'No tracking.', 'No server.'].map((txt, i) => { const v = mk('div', 'vline', over, `<span class="m"><span>${txt.slice(0, -1)}<span style="color:#9ec5ff">.</span></span></span>`); st(v, { top: `${300 + i * 128}px` }); return v.querySelector('.m > span'); });
-const vsub = mk('div', 'abs mono', over); st(vsub, { left: '186px', top: '712px', font: "500 26px 'DejaVu Sans Mono'", color: 'rgba(255,255,255,.85)', letterSpacing: '.02em', whiteSpace: 'pre' });
+const marq = [0, 1].map(i => { const m = mk('div', 'marq', over); m.textContent = (MARQUEE.join('  ·  ') + '  ·  ').repeat(3); st(m, { top: `${V ? (i ? 1440 : 330) : (i ? 760 : 60)}px` }); return m; });
+const VL = ['No account.', 'No tracking.', 'No server.'].map((txt, i) => { const v = mk('div', 'vline', over, `<span class="m"><span>${txt.slice(0, -1)}<span style="color:#9ec5ff">.</span></span></span>`); st(v, { top: `${(V ? 760 : 300) + i * 128}px` }); return v.querySelector('.m > span'); });
+const vsub = mk('div', 'abs mono', over); const VSX = V ? 86 : 186, VSY = V ? 1172 : 712;
+st(vsub, { left: `${VSX}px`, top: `${VSY}px`, font: "500 26px 'DejaVu Sans Mono'", color: 'rgba(255,255,255,.85)', letterSpacing: '.02em', whiteSpace: 'pre' });
 const VSUB = 'Local-first, keyboard-first. Made by alarboulletmarin.';
-const vsubHi = mk('div', 'abs', over); st(vsubHi, { left: '176px', top: '706px', height: '42px', background: 'rgba(158,197,255,.22)', transformOrigin: '0 50%', borderRadius: '4px' });
+const vsubHi = mk('div', 'abs', over); st(vsubHi, { top: `${VSY - 6}px`, height: '42px', background: 'rgba(158,197,255,.22)', transformOrigin: '0 50%', borderRadius: '4px' });
 
 /* ---------- build: end card ---------- */
 const endIcon = mk('div', '', over); endIcon.id = 'endIcon';
@@ -306,7 +314,7 @@ const endFoot = mk('div', 'abs mono', over, '<span style="opacity:.6">github.com
 const endTech = mk('div', 'abs mono', over, 'MIT · RUST · GTK4 · LIBADWAITA · LINUX'); st(endTech, { font: "500 15px 'DejaVu Sans Mono'", color: 'rgba(255,255,255,.5)', letterSpacing: '.24em', whiteSpace: 'nowrap' });
 
 /* ---------- layout constants ---------- */
-const CX = 960, CW = 900, CTOP = 232, ENTRY_H = 92, FOOT_H = 46;
+const CX = MX, CW = 900, CTOP = V ? 760 : 232, ENTRY_H = 92, FOOT_H = 46;
 const cardH = (n, L) => n === 0 ? ENTRY_H : ENTRY_H + 1 + L.pad * 2 + n * L.rowH + FOOT_H;
 let rowsKey = '';
 
@@ -317,11 +325,13 @@ function maskInOut(el, t, a, b, d = .45, dist = 110) {
   el.style.transform = `translateY(${(1 - ki) * dist - ko * dist}%)`;
 }
 function placeCallout(C, t, a, b, x, y) {
+  if (V) x = MX, y = CTOP - 36;
   const vis = t > a - .01 && t < b + .4; show(C.c, vis); if (!vis) return;
   const kl = E.outExpo(P(t, a, a + .35)), ko = E.in3(P(t, b, b + .25));
   const len = 46;
   st(C.c, { left: `${x}px`, top: `${y}px` });
-  if (C.side === 'L') { st(C.ln, { left: `${-len}px`, top: '0', width: `${len}px`, transformOrigin: '100% 50%', transform: `scaleX(${kl * (1 - ko)})` }); st(C.dot, { left: '0', top: '1px', transform: `scale(${kl * (1 - ko)})` }); st(C.body, { right: `${len + 18}px`, top: '-40px' }); }
+  if (C.side === 'T') { st(C.ln, { left: '-1px', top: `${-len}px`, width: '2px', height: `${len}px`, transformOrigin: '50% 100%', transform: `scaleY(${kl * (1 - ko)})` }); st(C.dot, { left: '0', top: '1px', transform: `scale(${kl * (1 - ko)})` }); st(C.body, { top: 'auto', bottom: `${len + 16}px` }); }
+  else if (C.side === 'L') { st(C.ln, { left: `${-len}px`, top: '0', width: `${len}px`, transformOrigin: '100% 50%', transform: `scaleX(${kl * (1 - ko)})` }); st(C.dot, { left: '0', top: '1px', transform: `scale(${kl * (1 - ko)})` }); st(C.body, { right: `${len + 18}px`, top: '-40px' }); }
   else { st(C.ln, { left: '0', top: '0', width: `${len}px`, transform: `scaleX(${kl * (1 - ko)})` }); st(C.dot, { left: '0', top: '1px', transform: `scale(${kl * (1 - ko)})` }); st(C.body, { left: `${len + 18}px`, top: '-40px' }); }
   C.lines.forEach((l, i) => maskInOut(l, t, a + .08 + i * .06, b - .02 + i * .03, .5));
 }
@@ -338,12 +348,12 @@ function render(t) {
 
   /* background reveal: a circle opening from the icon */
   const rev = E.outExpo(P(t, 1.3, 2.2));
-  bgwrap.style.clipPath = rev >= 1 ? 'none' : `circle(${rev * 1250}px at 960px 540px)`;
+  bgwrap.style.clipPath = rev >= 1 ? 'none' : `circle(${rev * (V ? 1500 : 1250)}px at ${MX}px ${MY}px)`;
   const ac = L.ac;
   blobs.forEach((b, i) => {
     const a = t * (.35 + i * .12) + i * 2.1;
     const col = i === 0 ? mixc([120, 160, 255], ac, .55) : i === 1 ? [210, 110, 170] : mixc([90, 70, 200], ac, .3);
-    st(b, { left: `${960 + Math.cos(a) * 520 - 450 + (i - 1) * 300}px`, top: `${540 + Math.sin(a * 1.3) * 300 - 450}px`, background: rgba(col, 1) });
+    st(b, { left: `${MX + Math.cos(a) * (V ? 260 : 520) - 450 + (i - 1) * (V ? 160 : 300)}px`, top: `${MY + Math.sin(a * 1.3) * (V ? 650 : 300) - 450 + (i - 1) * (V ? 300 : 0)}px`, background: rgba(col, 1) });
   });
   const gr = rng(Math.floor(t * 60) + 1); st(grain, { transform: `translate(${gr() * 200 - 100}px,${gr() * 200 - 100}px)` });
 
@@ -353,19 +363,19 @@ function render(t) {
     const press = t > .72 ? Math.max(0, 1 - (t - .72) / .1) * (t < .82 ? 1 : 0) : 0;
     const pr = t >= .72 && t < .86 ? 8 : 0;
     const out = E.inBack(P(t, .86, 1.12));
-    const items = [[kSuper, 650, 180, .12], [kPlus, 838, 60, .2], [kSpace, 920, 300, .26]];
+    const items = [[kSuper, 650 + MX - 960, 180, .12], [kPlus, 838 + MX - 960, 60, .2], [kSpace, 920 + MX - 960, 300, .26]];
     items.forEach(([e, x, w, d]) => {
       const k = E.spring(P(t, d, d + .55));
-      const y = 494 + (1 - k) * -420 + (e === kPlus ? 0 : pr);
+      const y = MY - 46 + (1 - k) * -420 + (e === kPlus ? 0 : pr);
       const sc = 1 - out;
-      st(e, { left: `${x + (x + w / 2 - 960) * out * 1.4}px`, top: `${y}px`, transform: `scale(${sc})`, opacity: Math.min(1, P(t, d, d + .08)) });
+      st(e, { left: `${x + (x + w / 2 - MX) * out * 1.4}px`, top: `${y}px`, transform: `scale(${sc})`, opacity: Math.min(1, P(t, d, d + .08)) });
       if (e !== kPlus) e.style.boxShadow = pr ? 'inset 0 1px 0 rgba(255,255,255,.18), 0 2px 0 #15162e, 0 6px 16px rgba(0,0,0,.5)' : '';
     });
     st(kPlus, { lineHeight: '92px' });
   }
   [[ring, .74, 1.15, 700], [ring2, .8, 1.3, 1000]].forEach(([r, a, b, R]) => {
     const k = P(t, a, b); show(r, k > 0 && k < 1); const rr = E.outExpo(k) * R;
-    st(r, { left: `${960 - rr}px`, top: `${540 - rr}px`, width: `${rr * 2}px`, height: `${rr * 2}px`, opacity: 1 - k });
+    st(r, { left: `${MX - rr}px`, top: `${MY - rr}px`, width: `${rr * 2}px`, height: `${rr * 2}px`, opacity: 1 - k });
   });
 
   /* ---- the card: icon → search bar → launcher → implode ---- */
@@ -381,7 +391,7 @@ function render(t) {
     const iconS = E.outBack(P(t, .85, 1.2));
     const mk_ = E.ioExpo(P(t, 1.42, 2.25));
     const w = lerp(128 * iconS, CW, mk_), h = lerp(128 * iconS, Ht, mk_);
-    const cy = lerp(540, CTOP + h / 2, mk_);
+    const cy = lerp(MY, CTOP + h / 2, mk_);
     const r = lerp(28 * iconS, L.r, mk_);
     const bgc = mixc([53, 132, 228], L.bg, E.out3(P(t, 1.55, 2.2)));
     const alpha = lerp(1, L.a, mk_);
@@ -396,7 +406,7 @@ function render(t) {
 
     // glyph: from the icon's centre to the entry's search icon
     const gs = lerp(iconS, .4, mk_);
-    const gx = lerp(960 - 64 * iconS, CX - CW / 2 + 46 - 55 * .4, mk_), gy = lerp(540 - 64 * iconS, CTOP + 46 - 55 * .4, mk_);
+    const gx = lerp(MX - 64 * iconS, CX - CW / 2 + 46 - 55 * .4, mk_), gy = lerp(MY - 64 * iconS, CTOP + 46 - 55 * .4, mk_);
     const gcol = rgba(mixc([255, 255, 255], mixc(L.fg, L.bg, .35), E.out3(P(t, 1.6, 2.2))), 1);
     st(glyph, { transform: `translate(${gx}px,${gy}px) scale(${gs})`, opacity: 1 - P(t, 9.2, 9.25) });
     const dc = 157.08, dp = 31.2;
@@ -443,7 +453,7 @@ function render(t) {
 
   /* keycaps under the card: Esc, then Enter */
   const ky = CTOP + cardH(6, look('default', 'adw')) + 56;
-  [[keyEsc, 8.62, 8.85, 9.05, 818], [keyEnter, 8.95, 9.15, 9.4, 1010]].forEach(([e, a, pr, b, x]) => {
+  [[keyEsc, 8.62, 8.85, 9.05, 818 + MX - 960], [keyEnter, 8.95, 9.15, 9.4, 1010 + MX - 960]].forEach(([e, a, pr, b, x]) => {
     const vis = t > a && t < b + .2; show(e, vis); if (!vis) return;
     const k = E.outBack(P(t, a, a + .25)), o = E.inBack(P(t, b, b + .18));
     const down = t > pr && t < pr + .12 ? 6 : 0;
@@ -453,8 +463,8 @@ function render(t) {
   /* implode flash + burst */
   const fk = P(t, 9.46, 9.75); show(flash, fk > 0 && fk < 1); show(burst, fk > 0 && fk < 1);
   if (fk > 0 && fk < 1) {
-    const fr = 30 + E.outExpo(fk) * 260; st(flash, { left: `${960 - fr}px`, top: `${515 - fr}px`, width: `${fr * 2}px`, height: `${fr * 2}px`, opacity: 1 - E.in3(fk) });
-    st(burst, { left: '960px', top: '515px' });
+    const fr = 30 + E.outExpo(fk) * 260; st(flash, { left: `${MX - fr}px`, top: `${CTOP + 283 - fr}px`, width: `${fr * 2}px`, height: `${fr * 2}px`, opacity: 1 - E.in3(fk) });
+    st(burst, { left: `${MX}px`, top: `${CTOP + 283}px` });
     burstLines.forEach((l, i) => { const ang = i / 12 * 360 + 7; const d = 40 + E.outExpo(fk) * 380; const len = 120 * (1 - fk);
       st(l, { width: `${len}px`, transform: `rotate(${ang}deg) translateX(${d}px)`, opacity: 1 - fk }); });
   }
@@ -477,7 +487,7 @@ function render(t) {
   hud.forEach((h, i) => { h.style.opacity = hudO; h.style.transform = `translateY(${(1 - E.outExpo(P(t, 2.2 + i * .05, 2.8))) * (i < 2 ? -20 : 20)}px)`; });
   const cs = Math.floor(t * 100); hud[2].textContent = `00:${String(Math.floor(t)).padStart(2, '0')}.${String(cs % 100).padStart(2, '0')}  /  00:15.00`;
   hudCorners.forEach((c, i) => { const k = E.outExpo(P(t, 2.25, 2.9)); const m = 28 + (1 - k) * 40;
-    st(c, { left: i % 2 ? `${1920 - m - 22}px` : `${m}px`, top: i < 2 ? `${m}px` : `${1080 - m - 22}px`, opacity: hudO * .8 }); });
+    st(c, { left: i % 2 ? `${W - m - 22}px` : `${m}px`, top: i < 2 ? `${m}px` : `${H - m - 22}px`, opacity: hudO * .8 }); });
   hud.forEach(h => h.style.mixBlendMode = t > 9.5 && t < 11 ? 'difference' : '');
 
   /* ---- kinetic panels ---- */
@@ -486,8 +496,8 @@ function render(t) {
     const ki = E.ioExpo(P(t, tin, tin + .28)), ko = E.ioExpo(P(t, tout, tout + .3));
     const covered = i < 2 && t > PANELS[i + 1].tin + .3;
     const vis = ki > 0 && ko < 1 && !covered; show(pn.el, vis); if (!vis) return;
-    const S = 520, xt = lerp(-S, 1920 + S, ki), xo = lerp(-S, 1920 + S, ko);
-    pn.el.style.clipPath = `polygon(${xo}px 0, ${xt}px 0, ${xt - S}px 1080px, ${xo - S}px 1080px)`;
+    const S = 520, xt = lerp(-S, W + S, ki), xo = lerp(-S, W + S, ko);
+    pn.el.style.clipPath = `polygon(${xo}px 0, ${xt}px 0, ${xt - S}px ${H}px, ${xo - S}px ${H}px)`;
     pn.lts.forEach((l, j) => {
       if (i === 1) { const on = t > tin + .1 + j * .05; l.parentElement.style.display = on ? '' : 'none'; l.style.transform = on ? `translateY(${(1 - E.outBack(P(t, tin + .1 + j * .05, tin + .2 + j * .05))) * 12}%)` : ''; }
       else if (i === 2) maskInOut(l, t, tin + .08 + j * .035, 10.74 + j * .02, .45);
@@ -513,7 +523,7 @@ function render(t) {
     vsub.textContent = t < 11.95 ? '' : VSUB.slice(0, nch) + (nch < VSUB.length || Math.floor(t * 6) % 2 ? '▍' : ' ');
     vsub.style.opacity = 1 - P(t, 12.95, 13.15);
     const hiW = 25 * 15.65 + 12; // 'Made by alarboulletmarin.' in 26px mono
-    st(vsubHi, { left: `${186 + 29 * 15.65 - 6}px`, width: `${hiW}px`, transform: `scaleX(${E.outExpo(P(t, 12.5, 12.8))})`, opacity: 1 - P(t, 12.95, 13.15) });
+    st(vsubHi, { left: `${VSX + 29 * 15.65 - 6}px`, width: `${hiW}px`, transform: `scaleX(${E.outExpo(P(t, 12.5, 12.8))})`, opacity: 1 - P(t, 12.95, 13.15) });
   }
 
   /* ---- end card ---- */
@@ -521,21 +531,21 @@ function render(t) {
   if (eOn) {
     const wmW = wordmark.offsetWidth, gap = 46, total = 176 + gap + wmW;
     const slide = E.ioExpo(P(t, 13.48, 13.86));
-    const ix = lerp(960 - 88, 960 - total / 2, slide), iy = 330;
+    const ix = lerp(MX - 88, MX - total / 2, slide), iy = V ? 700 : 330;
     const ik = E.outBack(P(t, 13.22, 13.55));
     st(endIcon, { left: `${ix}px`, top: `${iy}px`, transform: `scale(${ik}) rotate(${(1 - ik) * -25}deg)` });
     ec1.setAttribute('stroke-dasharray', 157.08); ec1.setAttribute('stroke-dashoffset', 157.08 * (1 - E.out3(P(t, 13.3, 13.62))));
     ep1.setAttribute('stroke-dasharray', 31.2); ep1.setAttribute('stroke-dashoffset', 31.2 * (1 - E.out3(P(t, 13.55, 13.7))));
     shine.setAttribute('x', lerp(-80, 200, E.io3(P(t, 14.25, 14.75))));
-    st(wordmark, { left: `${960 - total / 2 + 176 + gap}px`, top: `${iy + 88 - 128}px` });
+    st(wordmark, { left: `${MX - total / 2 + 176 + gap}px`, top: `${iy + 88 - 128}px` });
     wmL.forEach((l, j) => maskIn(l, t, 13.74 + j * .05, .55));
-    st(tagline, { top: '600px', height: '60px' });
+    st(tagline, { top: `${iy + 270}px`, height: '60px' });
     const tk = E.outExpo(P(t, 13.95, 14.4));
     st(tagEN, { transform: `translateY(${(1 - tk) * 30}px)`, opacity: tk });
     const fk2 = E.outBack(P(t, 14.1, 14.45));
-    st(endFoot, { left: `${960 - endFoot.offsetWidth / 2}px`, top: '700px', opacity: Math.min(1, fk2 * 2), transform: `scale(${.6 + .4 * fk2})` });
+    st(endFoot, { left: `${MX - endFoot.offsetWidth / 2}px`, top: `${iy + 370}px`, opacity: Math.min(1, fk2 * 2), transform: `scale(${.6 + .4 * fk2})` });
     const fk3 = E.outExpo(P(t, 14.25, 14.7));
-    st(endTech, { left: `${960 - endTech.offsetWidth / 2}px`, top: `${960 + (1 - fk3) * 16}px`, opacity: fk3 });
+    st(endTech, { left: `${MX - endTech.offsetWidth / 2}px`, top: `${H - 120 + (1 - fk3) * 16}px`, opacity: fk3 });
   }
 }
 

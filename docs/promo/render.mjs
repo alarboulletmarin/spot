@@ -1,6 +1,7 @@
 // Renders promo.html frame by frame and pipes the frames to ffmpeg.
 //   node render.mjs [out.mp4] [fps]          full video
 //   node render.mjs --stills dir t1 t2 ...   PNG stills at given times
+// Add --vertical for the 9:16 version (1080×1920).
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
 import { spawn } from 'node:child_process';
@@ -13,10 +14,12 @@ let chromium;
 try { ({ chromium } = require('playwright')); } catch { ({ chromium } = require(path.join(execSync('npm root -g').toString().trim(), 'playwright'))); }
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const args = process.argv.slice(2);
+const vertical = process.argv.includes('--vertical');
+const args = process.argv.slice(2).filter(a => a !== '--vertical');
+const [W, H] = vertical ? [1080, 1920] : [1920, 1080];
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM || undefined });
-const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
-await page.goto('file://' + path.join(here, 'promo.html'));
+const page = await browser.newPage({ viewport: { width: W, height: H } });
+await page.goto('file://' + path.join(here, 'promo.html') + (vertical ? '#vertical' : ''));
 await page.evaluate(() => document.fonts.ready);
 
 if (args[0] === '--stills') {

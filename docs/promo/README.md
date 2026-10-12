@@ -1,10 +1,11 @@
 # Promo video
 
-`spot-promo.mp4`: 15 seconds, 1920×1080, 60 fps, with sound.
+`spot-promo.mp4`: 15 seconds, 1920×1080 (16:9), 60 fps, with sound.
+`spot-promo-vertical.mp4`: the same in 1080×1920 (9:16), for Stories, Reels, Shorts and TikTok.
 
 Everything is generated from code, no assets:
 
-- `promo.html` draws every frame as a pure function of time, `render(t)`. Open it in a browser to watch it play live.
+- `promo.html` draws every frame as a pure function of time, `render(t)`. Open it in a browser to watch it play live; add `#vertical` to the address for the 9:16 layout.
 - `sound.py` synthesises the soundtrack on the same cues (needs `numpy`).
 - `render.mjs` steps through the frames in headless Chromium (Playwright) and pipes them to `ffmpeg`.
 
@@ -12,6 +13,9 @@ Everything is generated from code, no assets:
 python3 sound.py sound.wav
 node render.mjs silent.mp4 60
 ffmpeg -i silent.mp4 -i sound.wav -c:v copy -c:a aac -shortest spot-promo.mp4
+
+node render.mjs --vertical silent-v.mp4 60     # 9:16
+ffmpeg -i silent-v.mp4 -i sound.wav -c:v copy -c:a aac -shortest spot-promo-vertical.mp4
 ```
 
 | Time | Beat |
