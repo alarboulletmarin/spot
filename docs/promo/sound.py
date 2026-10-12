@@ -178,7 +178,7 @@ add(whoosh(0.6, False), 11.12, 0.25)                  # "Gone." scatters
 
 add(bell([D * 2, Fs * 2, A * 2, Cs * 4], 2.2, 0.35), 13.25)   # end card
 add(thump(50, 1.0), 13.25, 0.6)
-add(bell([A * 4, E * 4], 1.0, 0.12), 14.45)           # EN → FR flip
+add(bell([A * 4, E * 4], 1.0, 0.12), 14.12)           # repository pill
 
 # ---- master ----
 mix = np.stack([L, R], axis=1)

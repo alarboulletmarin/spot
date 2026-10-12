@@ -23,5 +23,5 @@ ffmpeg -i silent.mp4 -i sound.wav -c:v copy -c:a aac -shortest spot-promo.mp4
 | 7.4–8.8 s | `>style`: default, glass, compact, flat, rounded, mono |
 | 8.8–9.6 s | `Esc` puts things back, `Enter` launches, the window is gone |
 | 9.6–11.4 s | Press. Type. Enter. Gone. |
-| 11.4–13.2 s | No account. No tracking. No server. |
-| 13.2–15 s | End card, tagline flips from English to French |
+| 11.4–13.2 s | No account. No tracking. No server. Made by alarboulletmarin. |
+| 13.2–15 s | End card: the wordmark, the tagline and the repository, `alarboulletmarin/spot` |

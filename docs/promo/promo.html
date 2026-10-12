@@ -137,7 +137,7 @@ const STY = {
 const STYDESC = { default: 'Solid card, the selection in the accent colour', glass: 'Translucent card, a soft tint of the accent', compact: 'Denser rows, a neutral tint', flat: 'Square corners, rows from edge to edge', rounded: 'A pill for a card and pills for rows', mono: 'Fixed-width type, selection in reverse video' };
 const PALS = ['catppuccin', 'nord', 'dracula', 'gruvbox', 'tokyo-night', 'rose-pine'];
 const STYS = ['default', 'glass', 'compact', 'flat', 'rounded', 'mono'];
-const PROJECTS = ['zoned', 'bref', 'aplat', 'sept-mers', 'dada', 'rempart', 'revoir', 'pomodoro', 'tout-compte-fait', 'spot'];
+const MARQUEE = ['apps', 'files', 'commands', 'web search', 'palettes', 'styles', 'system actions', 'alarboulletmarin/spot'];
 
 function look(sn, pn) {
   const s = STY[sn], p = PAL[pn];
@@ -187,11 +187,11 @@ function iconSVG(kind) {
 const ROWS = {
   none: [],
   calc: [['calc', 'Calculator', 'Perform arithmetic, scientific or financial calculations', 'Application'],
-         ['folder', 'Calculs', '~/Documents/Calculs', 'Folder'],
+         ['folder', 'Calculus', '~/Documents/Calculus', 'Folder'],
          ['file', 'calculate.rs', '~/projects/spot/calculate.rs', 'File'],
          ['zip', 'calculator-icons.zip', '~/Downloads/calculator-icons.zip', 'File'],
-         ['file', 'Calcul des impôts.txt', '~/Documents/Calcul des impôts.txt', 'File'],
-         ['sheet', 'budget-calcul.ods', '~/Documents/budget-calcul.ods', 'File']],
+         ['file', 'tax-calculation.txt', '~/Documents/tax-calculation.txt', 'File'],
+         ['sheet', 'budget-calculator.ods', '~/Documents/budget-calculator.ods', 'File']],
   htop: [['term', 'htop', 'Runs in your terminal, which stays open afterwards', 'Terminal']],
   web: [['web', 'Search for “rust gtk4”', 'Your default browser, with its own search engine', 'Web']],
   pal: PALS.map(n => ['pal:' + n, 'Palette: ' + n, 'Moving here previews it. Enter writes it to spot.conf', 'Setting']),
@@ -288,10 +288,10 @@ const goneL = [...gone.querySelectorAll('.lt')];
 const goneR = rng(42); const goneV = goneL.map(() => ({ x: (goneR() - .5) * 900, y: (goneR() - .7) * 700, r: (goneR() - .5) * 120, s: .4 + goneR() * .9 }));
 
 /* ---------- build: values ---------- */
-const marq = [0, 1].map(i => { const m = mk('div', 'marq', over); m.textContent = (PROJECTS.join('  ·  ') + '  ·  ').repeat(3); st(m, { top: i ? '760px' : '60px' }); return m; });
+const marq = [0, 1].map(i => { const m = mk('div', 'marq', over); m.textContent = (MARQUEE.join('  ·  ') + '  ·  ').repeat(3); st(m, { top: i ? '760px' : '60px' }); return m; });
 const VL = ['No account.', 'No tracking.', 'No server.'].map((txt, i) => { const v = mk('div', 'vline', over, `<span class="m"><span>${txt.slice(0, -1)}<span style="color:#9ec5ff">.</span></span></span>`); st(v, { top: `${300 + i * 128}px` }); return v.querySelector('.m > span'); });
 const vsub = mk('div', 'abs mono', over); st(vsub, { left: '186px', top: '712px', font: "500 26px 'DejaVu Sans Mono'", color: 'rgba(255,255,255,.85)', letterSpacing: '.02em', whiteSpace: 'pre' });
-const VSUB = 'Local-first, keyboard-first. Made by Andréa.';
+const VSUB = 'Local-first, keyboard-first. Made by alarboulletmarin.';
 const vsubHi = mk('div', 'abs', over); st(vsubHi, { left: '176px', top: '706px', height: '42px', background: 'rgba(158,197,255,.22)', transformOrigin: '0 50%', borderRadius: '4px' });
 
 /* ---------- build: end card ---------- */
@@ -301,11 +301,9 @@ const ec1 = endIcon.querySelector('#ec1'), ep1 = endIcon.querySelector('#ep1'), 
 const wordmark = mk('div', '', over, letters('spot')); wordmark.id = 'wordmark';
 const wmL = [...wordmark.querySelectorAll('.lt')];
 const tagline = mk('div', '', over); tagline.id = 'tagline';
-const tagEN = mk('div', '', tagline, 'Press a shortcut. Type. Enter.'), tagFR = mk('div', '', tagline, 'Un raccourci. Tapez. Entrée.');
-const langPill = mk('div', 'abs mono', over, '<span id="len">EN</span> <span style="opacity:.4">/</span> <span id="lfr">FR</span>'); st(langPill, { font: "600 18px 'DejaVu Sans Mono'", letterSpacing: '.18em', color: '#fff', padding: '8px 16px', border: '1.5px solid rgba(255,255,255,.4)', borderRadius: '99px' });
-const lEN = langPill.querySelector('#len'), lFR = langPill.querySelector('#lfr');
-const endFoot = mk('div', 'abs mono', over, 'github.com/alarboulletmarin/spot'); st(endFoot, { font: "500 22px 'DejaVu Sans Mono'", color: 'rgba(255,255,255,.75)', letterSpacing: '.06em', whiteSpace: 'nowrap' });
-const endTech = mk('div', 'abs mono', over, 'MIT · RUST · GTK4 · LIBADWAITA · EN / FR'); st(endTech, { font: "500 15px 'DejaVu Sans Mono'", color: 'rgba(255,255,255,.5)', letterSpacing: '.24em', whiteSpace: 'nowrap' });
+const tagEN = mk('div', '', tagline, 'Press a shortcut. Type. Enter.');
+const endFoot = mk('div', 'abs mono', over, '<span style="opacity:.6">github.com/</span>alarboulletmarin/spot'); st(endFoot, { font: "600 30px 'DejaVu Sans Mono'", color: '#fff', letterSpacing: '.02em', whiteSpace: 'nowrap', padding: '14px 30px', border: '2px solid rgba(255,255,255,.45)', borderRadius: '99px', background: 'rgba(255,255,255,.08)' });
+const endTech = mk('div', 'abs mono', over, 'MIT · RUST · GTK4 · LIBADWAITA · LINUX'); st(endTech, { font: "500 15px 'DejaVu Sans Mono'", color: 'rgba(255,255,255,.5)', letterSpacing: '.24em', whiteSpace: 'nowrap' });
 
 /* ---------- layout constants ---------- */
 const CX = 960, CW = 900, CTOP = 232, ENTRY_H = 92, FOOT_H = 46;
@@ -514,12 +512,12 @@ function render(t) {
     const nch = Math.floor(P(t, 12.0, 12.45) * VSUB.length);
     vsub.textContent = t < 11.95 ? '' : VSUB.slice(0, nch) + (nch < VSUB.length || Math.floor(t * 6) % 2 ? '▍' : ' ');
     vsub.style.opacity = 1 - P(t, 12.95, 13.15);
-    const hiW = 21 * 15.65; // 'Made by Andréa.' in 26px mono
+    const hiW = 25 * 15.65 + 12; // 'Made by alarboulletmarin.' in 26px mono
     st(vsubHi, { left: `${186 + 29 * 15.65 - 6}px`, width: `${hiW}px`, transform: `scaleX(${E.outExpo(P(t, 12.5, 12.8))})`, opacity: 1 - P(t, 12.95, 13.15) });
   }
 
   /* ---- end card ---- */
-  const eOn = t > 13.2; [endIcon, wordmark, tagline, endFoot, endTech, langPill].forEach(e => show(e, eOn));
+  const eOn = t > 13.2; [endIcon, wordmark, tagline, endFoot, endTech].forEach(e => show(e, eOn));
   if (eOn) {
     const wmW = wordmark.offsetWidth, gap = 46, total = 176 + gap + wmW;
     const slide = E.ioExpo(P(t, 13.48, 13.86));
@@ -532,14 +530,10 @@ function render(t) {
     st(wordmark, { left: `${960 - total / 2 + 176 + gap}px`, top: `${iy + 88 - 128}px` });
     wmL.forEach((l, j) => maskIn(l, t, 13.74 + j * .05, .55));
     st(tagline, { top: '600px', height: '60px' });
-    const tk = E.outExpo(P(t, 14.0, 14.45)), flip = E.io3(P(t, 14.45, 14.72));
-    st(tagEN, { transform: `translateY(${(1 - tk) * 30}px) rotateX(${flip * 90}deg)`, opacity: tk * (flip < .5 ? 1 : 0) });
-    st(tagFR, { transform: `rotateX(${(flip - 1) * 90}deg)`, opacity: flip > .5 ? 1 : 0 });
-    const lk = E.outExpo(P(t, 14.1, 14.4));
-    st(langPill, { left: '1712px', top: '50px', opacity: lk, transform: `translateY(${(1 - lk) * -16}px)` });
-    lEN.style.opacity = flip < .5 ? 1 : .4; lFR.style.opacity = flip >= .5 ? 1 : .4;
-    const fk2 = E.outExpo(P(t, 14.15, 14.6));
-    st(endFoot, { left: `${960 - endFoot.offsetWidth / 2}px`, top: `${700 + (1 - fk2) * 20}px`, opacity: fk2 });
+    const tk = E.outExpo(P(t, 13.95, 14.4));
+    st(tagEN, { transform: `translateY(${(1 - tk) * 30}px)`, opacity: tk });
+    const fk2 = E.outBack(P(t, 14.1, 14.45));
+    st(endFoot, { left: `${960 - endFoot.offsetWidth / 2}px`, top: '700px', opacity: Math.min(1, fk2 * 2), transform: `scale(${.6 + .4 * fk2})` });
     const fk3 = E.outExpo(P(t, 14.25, 14.7));
     st(endTech, { left: `${960 - endTech.offsetWidth / 2}px`, top: `${960 + (1 - fk3) * 16}px`, opacity: fk3 });
   }
