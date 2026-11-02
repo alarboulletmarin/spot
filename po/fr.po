@@ -207,3 +207,18 @@ msgstr "Moteur de suggestions"
 
 msgid "Sends eligible input to the selected engine when enabled"
 msgstr "Envoie la saisie admissible au moteur choisi après activation"
+
+msgid "Select a line…"
+msgstr "Sélectionner une ligne…"
+
+msgid "Script failed"
+msgstr "Échec du script"
+
+msgid "Fill in the required arguments"
+msgstr "Remplissez les arguments obligatoires"
+
+msgid "Script"
+msgstr "Script"
+
+msgid "Run this script?"
+msgstr "Exécuter ce script ?"

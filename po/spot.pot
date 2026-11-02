@@ -212,3 +212,18 @@ msgstr ""
 
 msgid "Sends eligible input to the selected engine when enabled"
 msgstr ""
+
+msgid "Select a line…"
+msgstr ""
+
+msgid "Script failed"
+msgstr ""
+
+msgid "Fill in the required arguments"
+msgstr ""
+
+msgid "Script"
+msgstr ""
+
+msgid "Run this script?"
+msgstr ""

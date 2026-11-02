@@ -12,11 +12,13 @@
 
 mod calc;
 mod config;
+mod dmenu;
 mod http;
 mod palette;
 mod prefix;
 mod providers;
 mod results;
+mod scripts;
 mod search;
 mod style;
 mod suggest;
@@ -62,6 +64,11 @@ fn app_id() -> String {
 
 fn main() -> glib::ExitCode {
     init_translations();
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.iter().any(|a| a == "--dmenu") {
+        return dmenu::run(&args);
+    }
+
     let app = adw::Application::builder()
         .application_id(app_id())
         .flags(gio::ApplicationFlags::HANDLES_COMMAND_LINE)
@@ -114,6 +121,8 @@ mod tests {
     fn translations_cover_source_strings() {
         let sources = [
             include_str!("config.rs"),
+            include_str!("dmenu.rs"),
+            include_str!("scripts.rs"),
             include_str!("main.rs"),
             include_str!("palette.rs"),
             include_str!("prefix.rs"),

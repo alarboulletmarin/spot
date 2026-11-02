@@ -51,6 +51,7 @@ window.spot { background: transparent; }
     caret-color: @accent_color;
 }
 .spot-entry:focus-within { outline: none; box-shadow: none; }
+.spot-script-emoji { font-size: 1.5rem; min-width: 32px; }
 .spot-ghost { color: @window_fg_color; }
 .spot-entry placeholder { opacity: 0.4; }
 

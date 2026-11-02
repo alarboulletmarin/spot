@@ -25,6 +25,7 @@ pub struct Hit {
     pub subtitle: String,
     pub kind: String,
     pub icon: gio::Icon,
+    pub emoji: Option<String>,
     pub verb: String,
     pub activate: Action,
     /// The second action and its name: the containing folder of a file…
@@ -45,6 +46,7 @@ impl Default for Hit {
             subtitle: String::new(),
             kind: String::new(),
             icon: themed("application-x-executable"),
+            emoji: None,
             verb: tr("Open"),
             activate: Box::new(|_| Ok(())),
             alt: None,

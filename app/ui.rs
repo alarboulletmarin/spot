@@ -38,6 +38,7 @@ pub struct AppData {
     apps: RefCell<Vec<AppEntry>>,
     providers: Vec<Rc<SearchProvider>>,
     usage: RefCell<Usage>,
+    scripts: RefCell<Vec<Rc<crate::scripts::Script>>>,
 }
 
 impl AppData {
@@ -47,6 +48,7 @@ impl AppData {
             apps: RefCell::default(),
             providers: providers::load(bus),
             usage: RefCell::new(usage),
+            scripts: RefCell::default(),
         });
         data.load_apps();
         data
@@ -246,6 +248,7 @@ impl Ui {
 
     /// Clear the query and show the window, ready for typing.
     pub fn present_fresh(self: &Rc<Self>) {
+        *self.data.scripts.borrow_mut() = crate::scripts::load();
         self.entry.set_text("");
         self.list.unselect_all(); // the last pick is not this search's
         self.win.remove_css_class("picking");
@@ -631,6 +634,7 @@ impl Ui {
             })
             .collect();
         hits.extend(system_results(query));
+        hits.extend(crate::scripts::hits(&self.data.scripts.borrow(), query));
         hits.sort_by_key(|h| -h.score);
         hits
     }
@@ -765,9 +769,17 @@ fn label(text: &str, css: Option<&str>) -> gtk::Label {
 
 fn row_for(hit: &Hit, position: usize, query: &str) -> gtk::ListBoxRow {
     let row_box = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-    let icon = gtk::Image::from_gicon(&hit.icon);
-    icon.add_css_class("spot-icon");
-    row_box.append(&icon);
+    if let Some(emoji) = &hit.emoji {
+        let icon = gtk::Label::builder()
+            .label(emoji)
+            .css_classes(["spot-script-emoji"])
+            .build();
+        row_box.append(&icon);
+    } else {
+        let icon = gtk::Image::from_gicon(&hit.icon);
+        icon.add_css_class("spot-icon");
+        row_box.append(&icon);
+    }
 
     let texts = gtk::Box::builder()
         .orientation(gtk::Orientation::Vertical)

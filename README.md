@@ -232,6 +232,30 @@ Input containing `.`, `/`, `\`, `@`, `:`, control characters, `!`, `>`, or `~`, 
 Requests use libsoup 3's native TLS and cancellable GLib asynchronous I/O; it adds a small system library dependency rather than a browser engine, Node or a second async runtime. There is no cookie jar, identifier, authentication handler, logger, redirect following or disk cache. Responses are capped at 64 KiB. A 64-entry FIFO cache exists only in memory and is separated by engine; matching cached prefix responses serve further typing. Obsolete requests are cancelled on a new keystroke. Offline/network failures add no rows or blocking messages; invalid engine configuration appears with the other configuration errors. No embedded results page or WebKit dependency is included.
 
 
+## Dmenu and script commands
+
+```bash
+printf 'a\nb\n' | spot --dmenu
+printf 'a\nb\n' | spot --dmenu --prompt 'Choose…' --allow-custom
+```
+
+Dmenu runs independently of the resident launcher. It fuzzy-filters stdin lines, prints the selected original line to stdout, and exits 0. Escape/window close exits nonzero without output. Up/Down select a line; Enter accepts it. `--allow-custom` prints the typed query only when there are no matches. Normal application, file, provider, calculator and network sources are never searched in dmenu. At most 200 matches are displayed at once.
+
+Put [Raycast-format script commands](https://github.com/raycast/script-commands) in `$XDG_CONFIG_HOME/spot/scripts/` (normally `~/.config/spot/scripts/`). The directory is rescanned each time Spot opens. Scripts need a shebang and `@raycast.title`; the modes `silent`, `compact` and `fullOutput` are supported. Title, emoji/local-file icon, working directory, confirmation and up to three typed arguments are read from metadata comments. Text/password fields and dropdowns support required/optional arguments and percent encoding. Arguments are passed individually to the shebang interpreter, without shell interpolation. No runtime is bundled; install the script's interpreter and dependencies yourself.
+
+```bash
+#!/usr/bin/env bash
+# @raycast.schemaVersion 1
+# @raycast.title Greet
+# @raycast.mode compact
+# @raycast.icon 👋
+# @raycast.argument1 {"type":"text","placeholder":"Name"}
+printf 'Hello, %s!\n' "$1"
+```
+
+`silent` discards output and reports an unsuccessful exit in a window. `compact` and `fullOutput` show plain, selectable output after completion, capped at 64 KiB; ANSI formatting, inline mode and remote icon downloads are not implemented. Scripts that use macOS APIs still need porting. Scripts run with your user permissions and can access the network or files just as if you ran them yourself. Password fields hide input visually; script arguments are still process arguments.
+
+
 ## Settings
 
 Everything is set in one file, `~/.config/spot/spot.conf`. It is watched: save it and the open window changes, no restart. There is no settings window; the launcher itself lists the settings.
