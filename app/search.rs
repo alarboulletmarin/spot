@@ -20,52 +20,134 @@ fn is_separator(c: char) -> bool {
     " -_./".contains(c)
 }
 
-/// Score a subsequence match. Returns -1 when there is no match.
-pub fn fuzzy_score(query: &str, text: &str) -> i32 {
-    let q: Vec<char> = query.to_lowercase().chars().collect();
-    let t: Vec<char> = text.to_lowercase().chars().collect();
+/// Character positions refer to the original title, including non-ASCII text.
+#[derive(Debug, PartialEq)]
+pub struct Match {
+    pub score: i32,
+    pub positions: Vec<usize>,
+}
+
+fn folded(c: char) -> char {
+    c.to_lowercase().next().unwrap_or(c)
+}
+
+pub fn fuzzy_match(query: &str, text: &str) -> Option<Match> {
+    let q: Vec<char> = query.chars().map(folded).collect();
+    let original: Vec<char> = text.chars().collect();
+    let t: Vec<char> = original.iter().copied().map(folded).collect();
+    let matched = |score, positions| Some(Match { score, positions });
     if q.is_empty() {
-        return 0;
+        return matched(0, vec![]);
     }
-    if let Some(idx) = t.windows(q.len()).position(|w| w == q) {
-        // literal match always wins; a word start beats a mid-word hit
-        let word_start = idx == 0 || is_separator(t[idx - 1]);
-        return 1000 - idx as i32 * 6 - (t.len() / 4) as i32 + if word_start { 30 } else { 0 };
+    let word_start = |i: usize| {
+        i == 0
+            || is_separator(t[i - 1])
+            || (original[i].is_uppercase() && original[i - 1].is_lowercase())
+    };
+    // Bands are wider than usage's maximum bonus (100), even for long names.
+    if let Some(i) = t.windows(q.len()).position(|w| w == q) {
+        return matched(
+            4000 + if word_start(i) { 500 } else { 0 }
+                - (i.min(50) * 6 + (t.len() / 4).min(50)) as i32,
+            (i..i + q.len()).collect(),
+        );
     }
-    let (mut score, mut pos, mut prev) = (0i32, 0usize, -2i64);
-    for ch in q {
-        let Some(offset) = t[pos..].iter().position(|&c| c == ch) else {
-            return -1;
-        };
-        pos += offset;
-        score += if pos as i64 == prev + 1 { 12 } else { 1 };
-        if pos == 0 || is_separator(t[pos - 1]) {
-            score += 9;
+    let mut positions = Vec::with_capacity(q.len());
+    let mut pos = 0;
+    for &ch in &q {
+        if let Some(offset) = t[pos..].iter().position(|&c| c == ch) {
+            pos += offset;
+            positions.push(pos);
+            pos += 1;
+        } else {
+            positions.clear();
+            break;
         }
-        prev = pos as i64;
-        pos += 1;
     }
-    score - (t.len() / 12) as i32
+    if !positions.is_empty() {
+        // Initials are matched independently: an earlier mid-word letter must not hide them.
+        let mut initials = Vec::with_capacity(q.len());
+        let mut next = 0;
+        for (i, &c) in t.iter().enumerate() {
+            if word_start(i) && c == q[next] {
+                initials.push(i);
+                next += 1;
+                if next == q.len() {
+                    break;
+                }
+            }
+        }
+        if initials.len() == q.len() {
+            return matched(3000, initials);
+        }
+        return matched(2000 - (t.len().min(100)) as i32, positions);
+    }
+    if !(4..=128).contains(&q.len()) {
+        return None;
+    }
+    let limit = if q.len() >= 8 { 2 } else { 1 };
+    for start in (0..t.len()).filter(|&i| word_start(i)) {
+        for len in q.len().saturating_sub(1)..=q.len() + 1 {
+            if start + len > t.len() {
+                continue;
+            }
+            if distance(&q, &t[start..start + len], limit) <= limit {
+                let common = q
+                    .iter()
+                    .zip(&t[start..])
+                    .take_while(|(a, b)| a == b)
+                    .count();
+                return matched(1000, (start..start + common).collect());
+            }
+        }
+    }
+    None
+}
+
+/// Bounded optimal-string-alignment Damerau-Levenshtein, three stack rows.
+fn distance(a: &[char], b: &[char], limit: usize) -> usize {
+    let mut before = [0usize; 130];
+    let mut prev = [0usize; 130];
+    let mut row = [0usize; 130];
+    for (j, value) in prev.iter_mut().enumerate().take(b.len() + 1) {
+        *value = j;
+    }
+    for i in 1..=a.len() {
+        row[0] = i;
+        for j in 1..=b.len() {
+            row[j] = (prev[j] + 1)
+                .min(row[j - 1] + 1)
+                .min(prev[j - 1] + usize::from(a[i - 1] != b[j - 1]));
+            if i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1] {
+                row[j] = row[j].min(before[j - 2] + 1);
+            }
+        }
+        if *row[..=b.len()].iter().min().unwrap() > limit {
+            return limit + 1;
+        }
+        before = prev;
+        prev = row;
+    }
+    prev[b.len()]
+}
+
+pub fn fuzzy_score(query: &str, text: &str) -> i32 {
+    fuzzy_match(query, text).map_or(-1, |m| m.score)
 }
 
 /// Name first, then generic name, then keywords / executable, each less direct than the last.
 pub fn app_score(query: &str, name: &str, generic: Option<&str>, aliases: &[String]) -> i32 {
-    let score = fuzzy_score(query, name);
-    if score >= 0 {
-        return score;
-    }
-    if let Some(generic) = generic.filter(|g| !g.is_empty()) {
-        let score = fuzzy_score(query, generic);
-        if score >= 0 {
-            return score - 40;
-        }
-    }
-    let best = aliases
-        .iter()
-        .map(|a| fuzzy_score(query, a))
-        .filter(|&s| s >= 0)
-        .max();
-    best.map_or(-1, |s| s - 60)
+    std::iter::once(fuzzy_score(query, name))
+        .chain(generic.filter(|g| !g.is_empty()).map(|g| {
+            let s = fuzzy_score(query, g);
+            if s >= 0 { s - 40 } else { -1 }
+        }))
+        .chain(aliases.iter().map(|a| {
+            let s = fuzzy_score(query, a);
+            if s >= 0 { s - 60 } else { -1 }
+        }))
+        .max()
+        .unwrap_or(-1)
 }
 
 /// Keep paths inside $HOME, skipping hidden entries and node_modules.
@@ -176,5 +258,33 @@ mod tests {
         }
         assert_eq!(usage.bonus("a"), 100); // capped
         fs::remove_dir_all(dir).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod matching_tests {
+    use super::*;
+    #[test]
+    fn tiers_and_positions() {
+        assert_eq!(
+            fuzzy_match("vsc", "Visual Studio Code").unwrap().positions,
+            [0, 7, 14]
+        );
+        assert!(fuzzy_score("vsc", "Visual Studio Code") > fuzzy_score("vsc", "Vasecraft"));
+        assert!(fuzzy_score("gt", "GNOME Terminal") >= 3000);
+        for (q, t) in [
+            ("chorme", "Chrome"),
+            ("chorme", "Google Chrome"),
+            ("firfox", "Firefox"),
+            ("calandar", "Calendar"),
+        ] {
+            assert!(fuzzy_score(q, t) >= 0, "{q}: {t}");
+        }
+        assert_eq!(fuzzy_score("ab", "Acorn"), -1);
+        assert_eq!(fuzzy_score("xyz", "Xylophone"), -1);
+        assert!(fuzzy_score("vsc", "avsc") > fuzzy_score("vsc", "Visual Studio Code") + 100);
+        assert_eq!(fuzzy_match("ét", "Été").unwrap().positions, [0, 1]);
+        assert_eq!(fuzzy_match("chorme", "Chrome").unwrap().positions, [0, 1]);
+        assert!(fuzzy_score("aB", "alphaBeta") >= 3000);
     }
 }

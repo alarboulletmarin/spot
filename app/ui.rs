@@ -554,7 +554,8 @@ impl Ui {
         let index = self.list.selected_row().map_or(0, |r| r.index());
         self.list.remove_all();
         for (position, hit) in results.iter().enumerate() {
-            self.list.append(&row_for(hit, position));
+            self.list
+                .append(&row_for(hit, position, &self.query.borrow()));
         }
         let visible = !results.is_empty();
         let last = results.len() as i32 - 1;
@@ -625,7 +626,7 @@ fn label(text: &str, css: Option<&str>) -> gtk::Label {
     label
 }
 
-fn row_for(hit: &Hit, position: usize) -> gtk::ListBoxRow {
+fn row_for(hit: &Hit, position: usize, query: &str) -> gtk::ListBoxRow {
     let row_box = gtk::Box::new(gtk::Orientation::Horizontal, 12);
     let icon = gtk::Image::from_gicon(&hit.icon);
     icon.add_css_class("spot-icon");
@@ -636,7 +637,20 @@ fn row_for(hit: &Hit, position: usize) -> gtk::ListBoxRow {
         .hexpand(true)
         .valign(gtk::Align::Center)
         .build();
-    texts.append(&label(&hit.title, Some("spot-title")));
+    let title = label(&hit.title, Some("spot-title"));
+    if let Some(found) = fuzzy_match(query, &hit.title) {
+        let attrs = pango::AttrList::new();
+        for (i, (byte, ch)) in hit.title.char_indices().enumerate() {
+            if found.positions.contains(&i) {
+                let mut attr = pango::AttrInt::new_weight(pango::Weight::Bold);
+                attr.set_start_index(byte as u32);
+                attr.set_end_index((byte + ch.len_utf8()) as u32);
+                attrs.insert(attr);
+            }
+        }
+        title.set_attributes(Some(&attrs));
+    }
+    texts.append(&title);
     if !hit.subtitle.is_empty() {
         texts.append(&label(&hit.subtitle, Some("spot-sub")));
     }

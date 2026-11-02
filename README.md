@@ -192,6 +192,10 @@ The terminal can be named in `~/.config/spot/spot.conf`; without it, spot picks 
 Command=alacritty -e
 ```
 
+## Matching
+
+`vsc` finds Visual Studio Code and `gt` finds GNOME Terminal. `chorme`, `firfox` and `calandar` can find Chrome, Firefox and Calendar. Matched title characters are bold, including with compact/mono styles and palettes. Typo matches highlight only the exact common prefix.
+
 ## Settings
 
 Everything is set in one file, `~/.config/spot/spot.conf`. It is watched: save it and the open window changes, no restart. There is no settings window; the launcher itself lists the settings.
@@ -352,7 +356,7 @@ Requirements: GTK 4.12+, libadwaita 1, GLib, `plocate` for file search. Building
 - **System actions**: over D-Bus; restart, shut down and log out go through GNOME's confirmation dialog.
 - **Resident process**: the first invocation stays in the background with its window already created. Every later `spot` is a small GIO-only binary that asks it over D-Bus to show that window, without loading GTK. On the author's machine that call takes about 10 ms (median), and the very first opening after login is as fast as the next ones (the window is built at startup instead of on first use, which used to cost ~1.9 s).
 
-Ranking is a subsequence score: a literal match always wins, word starts get a bonus, shorter paths break ties. Applications you launch often get a bonus; the counts are in `~/.local/share/spot/usage.json`.
+Ranking uses separated score bands: literal matches (with a word-start bonus), word initials, subsequences, then typo matches. For typos, query lengths 4–7 allow one edit and lengths 8–128 allow two, including adjacent transpositions, against a word prefix. Shorter queries never get typo tolerance. A usage bonus cannot move a result above a stronger matching tier; shorter paths break file ties. Applications you launch often get a bonus; the counts are in `~/.local/share/spot/usage.json`.
 
 Application names and descriptions are already localized by GLib; the rest of the interface is translated through `po/`.
 
