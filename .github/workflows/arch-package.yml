@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     container: archlinux:base-devel
     steps:
-      - run: pacman -Syu --noconfirm cargo gtk4 libadwaita git github-cli
+      - run: pacman -Syu --noconfirm cargo gtk4 libadwaita libsoup3 git github-cli
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.release.tag_name }}

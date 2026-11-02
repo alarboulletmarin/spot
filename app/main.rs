@@ -12,12 +12,14 @@
 
 mod calc;
 mod config;
+mod http;
 mod palette;
 mod prefix;
 mod providers;
 mod results;
 mod search;
 mod style;
+mod suggest;
 mod ui;
 
 use gtk::prelude::*;

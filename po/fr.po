@@ -195,3 +195,15 @@ msgstr "Copier en hexadécimal"
 
 msgid "Complete"
 msgstr "Compléter"
+
+msgid "Disable web suggestions"
+msgstr "Désactiver les suggestions web"
+
+msgid "Enable web suggestions"
+msgstr "Activer les suggestions web"
+
+msgid "Suggestion engine"
+msgstr "Moteur de suggestions"
+
+msgid "Sends eligible input to the selected engine when enabled"
+msgstr "Envoie la saisie admissible au moteur choisi après activation"

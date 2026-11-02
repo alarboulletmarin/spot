@@ -57,7 +57,7 @@ Optional: `plocate`, for file search.
 1. Install the build tools and libraries:
 
    ```bash
-   sudo apt install build-essential pkg-config libgtk-4-dev libadwaita-1-dev gettext plocate
+   sudo apt install build-essential pkg-config libgtk-4-dev libadwaita-1-dev libsoup-3.0-dev gettext plocate
    ```
 
 2. Install Rust **1.92 or newer** with [rustup](https://rustup.rs). The `cargo` from apt is too old (Ubuntu 24.04, hence Linux Mint 22, stops at 1.91). Check with `rustc --version`.
@@ -78,14 +78,14 @@ Build and install tested on Ubuntu 24.04.
 Same steps as above, with these packages (names not tested):
 
 ```bash
-sudo dnf install gcc pkgconf-pkg-config gtk4-devel libadwaita-devel gettext plocate
+sudo dnf install gcc pkgconf-pkg-config gtk4-devel libadwaita-devel libsoup3-devel gettext plocate
 ```
 
 Check `rustc --version`: you need 1.92 or newer, use [rustup](https://rustup.rs) if yours is older.
 
 ### Other distributions
 
-You need GTK 4.12+ and libadwaita 1 with their development files, `gettext` (for `msgfmt`), `plocate` for file search, and Rust 1.92+. Then:
+You need GTK 4.12+, libadwaita 1 and libsoup 3 with their development files, `gettext` (for `msgfmt`), `plocate` for file search, and Rust 1.92+. Then:
 
 ```bash
 make                    # cargo build --release --locked
@@ -211,6 +211,25 @@ Complete=Tab;Right
 Calculations appear synchronously above applications, without a GNOME Calculator installation. Supported syntax: decimal `.` or `,`, `0x` hexadecimal and `0b` binary input, `+ - * / % ^`, `× ÷`, parentheses, unary signs, `pi`, `e`, and `sqrt sin cos tan ln log abs`. Powers associate to the right (`2^3^2 = 512`), and `-2^2 = -4`; trigonometric arguments use radians. Bare numbers and constants remain searches. Invalid or nonfinite results produce no calculator row.
 
 `2^10 * 3` gives 3072 with `0xC00` underneath; `0xff + 1` gives 256 / `0x100`. Display grouping follows the system numeric locale. Enter copies the ungrouped decimal result; Ctrl+Enter copies hexadecimal when a positive integer can be represented. The footer shows both actions. The built-in row suppresses the GNOME Calculator provider for that query. Arithmetic uses finite `f64` values, so very large integers have floating-point precision limits.
+
+
+## Suggestions
+
+Suggestions are **disabled by default**. Select a provider and then enable them in `>suggestions`, or edit:
+
+```ini
+[Suggestions]
+Enabled=false
+Engine=duckduckgo
+# Also: google, startpage, brave, or an HTTPS OpenSearch URL containing one %s.
+# Engine=https://example.com/suggest?q=%s
+```
+
+Enabling sends eligible input, plus the normal connection IP address, to the chosen engine after the 300 ms typing pause (following the 90 ms search debounce). The palette states this before activation. Up to four suggestions append after local results without changing your selected row. Enter searches in the default browser using **the browser's own engine**, just like `search:`.
+
+Input containing `.`, `/`, `\`, `@`, `:`, control characters, `!`, `>`, or `~`, anything containing `localhost`, inputs shorter than 2 or longer than 100 characters, calculations (including incomplete ones), and commands whose first word is on `PATH` are not sent. This is a conservative filter, not a promise to detect every possible secret: keep suggestions disabled when entering private text.
+
+Requests use libsoup 3's native TLS and cancellable GLib asynchronous I/O; it adds a small system library dependency rather than a browser engine, Node or a second async runtime. There is no cookie jar, identifier, authentication handler, logger, redirect following or disk cache. Responses are capped at 64 KiB. A 64-entry FIFO cache exists only in memory and is separated by engine; matching cached prefix responses serve further typing. Obsolete requests are cancelled on a new keystroke. Offline/network failures add no rows or blocking messages; invalid engine configuration appears with the other configuration errors. No embedded results page or WebKit dependency is included.
 
 
 ## Settings
@@ -341,7 +360,7 @@ On a desktop other than GNOME:
 | Ubuntu 24.04, Linux Mint 22 | `make install`, Rust from rustup | build and install on Ubuntu 24.04 |
 | Debian 13, Fedora, openSUSE Tumbleweed | `make install`, Rust from rustup if older than 1.92 | no |
 
-Requirements: GTK 4.12+, libadwaita 1, GLib, `plocate` for file search. Building needs Rust **1.92 or newer** (`rust-version` in `Cargo.toml`, set by the GTK bindings).
+Requirements: GTK 4.12+, libadwaita 1, GLib, libsoup 3, `plocate` for file search. Building needs Rust **1.92 or newer** (`rust-version` in `Cargo.toml`, set by the GTK bindings).
 
 ## Troubleshooting
 

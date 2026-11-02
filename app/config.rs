@@ -167,6 +167,8 @@ pub struct Config {
     /// The terminal for `!`, with the argument that introduces the program.
     pub terminal: Option<String>,
     pub keys: Keymap,
+    pub suggestions_enabled: bool,
+    pub suggestions_engine: String,
     /// What is wrong in the file, each with a hint, in the user's language: shown in the window.
     pub errors: Vec<(String, String)>,
 }
@@ -216,6 +218,30 @@ impl Config {
             }
         }
 
+        let mut suggestions_enabled = false;
+        if keyfile.has_key("Suggestions", "Enabled").unwrap_or(false) {
+            match keyfile.boolean("Suggestions", "Enabled") {
+                Ok(value) => suggestions_enabled = value,
+                Err(_) => errors.push((
+                    unknown(
+                        "[Suggestions] Enabled",
+                        &get("Suggestions", "Enabled").unwrap_or_default(),
+                    ),
+                    "true, false".into(),
+                )),
+            }
+        }
+        let suggestions_engine = get("Suggestions", "Engine").unwrap_or_default();
+        if (!suggestions_engine.is_empty() || suggestions_enabled)
+            && crate::suggest::endpoint(&suggestions_engine).is_none()
+        {
+            errors.push((
+                unknown("[Suggestions] Engine", &suggestions_engine),
+                "duckduckgo, google, startpage, brave, https://…%s".into(),
+            ));
+            suggestions_enabled = false;
+        }
+
         let defaults = default_keys();
         for name in keyfile.keys("Keys").iter().flatten() {
             if !defaults.iter().any(|(known, ..)| known == name.as_str()) {
@@ -249,6 +275,8 @@ impl Config {
             appearance,
             terminal: get("Terminal", "Command"),
             keys: Keymap(bindings),
+            suggestions_enabled,
+            suggestions_engine,
             errors,
         }
     }
@@ -375,6 +403,12 @@ pub fn template() -> String {
 [Terminal]
 # The terminal for `!`, then the argument that introduces the program
 #Command=alacritty -e
+
+[Suggestions]
+# Off by default. When enabled, eligible input is sent to the chosen engine.
+# Choose duckduckgo, google, startpage, brave, or an HTTPS OpenSearch URL with %s.
+#Enabled=false
+#Engine=
 
 [Keys]
 # Written as GTK does: <Ctrl>n, <Alt>1, Page_Down. Several keys are separated by ;
@@ -619,6 +653,13 @@ mod opt_in_tests {
     use super::*;
     fn parse(s: &str) -> Config {
         Config::parse(s, &[])
+    }
+    #[test]
+    fn suggestions_require_an_explicit_valid_engine() {
+        assert!(!parse("").suggestions_enabled);
+        assert!(!parse("[Suggestions]\nEnabled=true\n").suggestions_enabled);
+        let enabled = parse("[Suggestions]\nEnabled=true\nEngine=duckduckgo\n");
+        assert!(enabled.errors.is_empty() && enabled.suggestions_enabled);
     }
     #[test]
     fn explicit_binding_overrides_default_completion() {

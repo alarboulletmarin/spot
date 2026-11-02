@@ -200,3 +200,15 @@ msgstr ""
 
 msgid "Complete"
 msgstr ""
+
+msgid "Disable web suggestions"
+msgstr ""
+
+msgid "Enable web suggestions"
+msgstr ""
+
+msgid "Suggestion engine"
+msgstr ""
+
+msgid "Sends eligible input to the selected engine when enabled"
+msgstr ""

@@ -103,6 +103,7 @@ pub struct Ui {
     cancellable: RefCell<gio::Cancellable>,
     debounce: RefCell<Option<glib::SourceId>>,
     file_proc: RefCell<Option<gio::Subprocess>>,
+    suggestion_cache: RefCell<crate::suggest::Cache>,
 }
 
 impl Ui {
@@ -202,6 +203,7 @@ impl Ui {
             cancellable: RefCell::new(gio::Cancellable::new()),
             debounce: RefCell::default(),
             file_proc: RefCell::default(),
+            suggestion_cache: RefCell::default(),
         });
 
         let u = ui.clone();
@@ -480,6 +482,7 @@ impl Ui {
             if ui.generation.get() == generation {
                 ui.settled.set(true);
                 ui.render();
+                ui.search_suggestions(generation);
             }
         });
         let apps: Vec<_> = self
@@ -540,10 +543,61 @@ impl Ui {
                 results.extend(prefix::web_fallback(&query).map(Rc::new));
             }
         }
+        results.extend(sections.get("suggestions").into_iter().flatten().cloned());
         // last, so that Enter never lands on them while looking for something else
         results.extend(palette::error_rows().into_iter().map(Rc::new));
         drop(sections);
         self.show_results(results);
+    }
+
+    fn search_suggestions(self: &Rc<Self>, generation: u32) {
+        let config = config::current();
+        let query = self.query.borrow().clone();
+        if !config.suggestions_enabled
+            || !crate::suggest::eligible(&query)
+            || command_result(&query).is_some()
+        {
+            return;
+        }
+        let engine = config.suggestions_engine.clone();
+        let cached = self.suggestion_cache.borrow().get(&engine, &query);
+        if let Some(values) = cached {
+            self.on_suggestions(values);
+            return;
+        }
+        let Some(endpoint) = crate::suggest::endpoint(&engine) else {
+            return;
+        };
+        let url = endpoint.replace("%s", &glib::uri_escape_string(&query, None::<&str>, false));
+        let ui = self.clone();
+        crate::http::get(&url, &self.cancellable.borrow(), move |body| {
+            let current = config::current();
+            if ui.generation.get() != generation
+                || !current.suggestions_enabled
+                || current.suggestions_engine != engine
+            {
+                return;
+            }
+            if let Some(body) = body {
+                let values = crate::suggest::decode(&body, &query);
+                ui.suggestion_cache
+                    .borrow_mut()
+                    .put(engine, query, values.clone());
+                ui.on_suggestions(values);
+            }
+        });
+    }
+
+    fn on_suggestions(&self, values: Vec<String>) {
+        let hits = values
+            .iter()
+            .filter_map(|s| prefix::web_fallback(s))
+            .map(Rc::new)
+            .collect();
+        self.sections
+            .borrow_mut()
+            .insert("suggestions".into(), hits);
+        self.render();
     }
 
     fn search_apps(&self, query: &str) -> Vec<Hit> {

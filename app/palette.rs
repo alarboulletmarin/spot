@@ -117,6 +117,40 @@ fn all(config: &Config, palettes: &[String], in_search: bool) -> Vec<Row> {
         rows.push((format!("{name} {theme}"), hit));
     }
 
+    for (key, value, title) in std::iter::once((
+        "Enabled",
+        if config.suggestions_enabled {
+            "false"
+        } else {
+            "true"
+        },
+        if config.suggestions_enabled {
+            tr("Disable web suggestions")
+        } else {
+            tr("Enable web suggestions")
+        },
+    ))
+    .chain(crate::suggest::ENGINES.iter().map(|&engine| {
+        (
+            "Engine",
+            engine,
+            format!("{}: {engine}", tr("Suggestion engine")),
+        )
+    })) {
+        let value = value.to_owned();
+        rows.push((
+            "suggestions web".into(),
+            Hit {
+                title,
+                subtitle: tr("Sends eligible input to the selected engine when enabled"),
+                kind: tr("Settings"),
+                activate: Box::new(move |_| config::set("Suggestions", key, &value)),
+                then: Then::Refresh,
+                ..Default::default()
+            },
+        ));
+    }
+
     // `settings` in an ordinary search gets one row that leads here, not the whole list
     if in_search {
         rows.push((
