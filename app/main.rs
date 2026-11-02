@@ -12,6 +12,8 @@
 
 mod calc;
 mod config;
+mod desktop;
+mod desktop_wayland;
 mod dmenu;
 mod http;
 mod palette;
@@ -121,6 +123,7 @@ mod tests {
     fn translations_cover_source_strings() {
         let sources = [
             include_str!("config.rs"),
+            include_str!("desktop.rs"),
             include_str!("dmenu.rs"),
             include_str!("scripts.rs"),
             include_str!("main.rs"),

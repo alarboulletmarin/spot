@@ -167,6 +167,8 @@ pub struct Config {
     /// The terminal for `!`, with the argument that introduces the program.
     pub terminal: Option<String>,
     pub keys: Keymap,
+    pub clipboard_enabled: bool,
+    pub windows_enabled: bool,
     pub suggestions_enabled: bool,
     pub suggestions_engine: String,
     /// What is wrong in the file, each with a hint, in the user's language: shown in the window.
@@ -218,6 +220,20 @@ impl Config {
             }
         }
 
+        let mut module_flag = |key: &str| {
+            if !keyfile.has_key("Modules", key).unwrap_or(false) {
+                return false;
+            }
+            match keyfile.boolean("Modules", key) {
+                Ok(value) => value,
+                Err(_) => {
+                    errors.push((unknown("[Modules]", key), "true, false".into()));
+                    false
+                }
+            }
+        };
+        let clipboard_enabled = module_flag("Clipboard");
+        let windows_enabled = module_flag("Windows");
         let mut suggestions_enabled = false;
         if keyfile.has_key("Suggestions", "Enabled").unwrap_or(false) {
             match keyfile.boolean("Suggestions", "Enabled") {
@@ -275,6 +291,8 @@ impl Config {
             appearance,
             terminal: get("Terminal", "Command"),
             keys: Keymap(bindings),
+            clipboard_enabled,
+            windows_enabled,
             suggestions_enabled,
             suggestions_engine,
             errors,
@@ -308,6 +326,7 @@ pub fn reload() -> Rc<Config> {
         eprintln!("spot: {error} ({hint})");
     }
     CURRENT.set(Some(config.clone()));
+    crate::desktop::configure();
     config
 }
 
@@ -403,6 +422,11 @@ pub fn template() -> String {
 [Terminal]
 # The terminal for `!`, then the argument that introduces the program
 #Command=alacritty -e
+
+[Modules]
+# Optional desktop integration. Clipboard history stays in memory (50 entries).
+#Clipboard=false
+#Windows=false
 
 [Suggestions]
 # Off by default. When enabled, eligible input is sent to the chosen engine.
@@ -655,11 +679,26 @@ mod opt_in_tests {
         Config::parse(s, &[])
     }
     #[test]
-    fn suggestions_require_an_explicit_valid_engine() {
-        assert!(!parse("").suggestions_enabled);
-        assert!(!parse("[Suggestions]\nEnabled=true\n").suggestions_enabled);
-        let enabled = parse("[Suggestions]\nEnabled=true\nEngine=duckduckgo\n");
-        assert!(enabled.errors.is_empty() && enabled.suggestions_enabled);
+    fn optional_sources_require_explicit_configuration() {
+        let defaults = parse("");
+        assert!(
+            !defaults.suggestions_enabled
+                && !defaults.clipboard_enabled
+                && !defaults.windows_enabled
+        );
+        let missing_engine = parse("[Suggestions]\nEnabled=true\n");
+        assert!(!missing_engine.suggestions_enabled);
+        assert_eq!(missing_engine.errors.len(), 1);
+        let enabled = parse(
+            "[Suggestions]\nEnabled=true\nEngine=https://example.com/?q=%s\n[Modules]\nClipboard=true\nWindows=true\n",
+        );
+        assert!(enabled.errors.is_empty());
+        assert!(
+            enabled.suggestions_enabled && enabled.clipboard_enabled && enabled.windows_enabled
+        );
+        let invalid = parse("[Modules]\nClipboard=yes\nWindows=true\n");
+        assert!(!invalid.clipboard_enabled && invalid.windows_enabled);
+        assert_eq!(invalid.errors.len(), 1);
     }
     #[test]
     fn explicit_binding_overrides_default_completion() {

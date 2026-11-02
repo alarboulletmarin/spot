@@ -227,3 +227,45 @@ msgstr ""
 
 msgid "Run this script?"
 msgstr ""
+
+msgid "Module disabled"
+msgstr ""
+
+msgid "Enable it explicitly in spot.conf"
+msgstr ""
+
+msgid "Desktop backend unavailable"
+msgstr ""
+
+msgid "Enable the Spot GNOME extension or use a compositor supporting the required Wayland protocols"
+msgstr ""
+
+msgid "Clipboard"
+msgstr ""
+
+msgid "Clear clipboard history"
+msgstr ""
+
+msgid "Clear"
+msgstr ""
+
+msgid "Window"
+msgstr ""
+
+msgid "Focus"
+msgstr ""
+
+msgid "No windows"
+msgstr ""
+
+msgid "Clipboard history"
+msgstr ""
+
+msgid "Window switcher"
+msgstr ""
+
+msgid "Disable"
+msgstr ""
+
+msgid "Enable"
+msgstr ""

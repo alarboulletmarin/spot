@@ -256,6 +256,34 @@ printf 'Hello, %s!\n' "$1"
 `silent` discards output and reports an unsuccessful exit in a window. `compact` and `fullOutput` show plain, selectable output after completion, capped at 64 KiB; ANSI formatting, inline mode and remote icon downloads are not implemented. Scripts that use macOS APIs still need porting. Scripts run with your user permissions and can access the network or files just as if you ran them yourself. Password fields hide input visually; script arguments are still process arguments.
 
 
+## Clipboard history and windows
+
+Both modules are off by default:
+
+```ini
+[Modules]
+Clipboard=false
+Windows=false
+```
+
+Enable each explicitly in `>modules` or `spot.conf`. Open `clipboard:` / `windows:` or their palette entries. Selecting clipboard text copies it; selecting a window focuses it. The clipboard view includes **Clear clipboard history**. Disabled modules show how to enable them; missing backend/protocols show a nonblocking explanation.
+
+History is **memory only**, never written to disk: at most 50 unique text entries of at most 16 KiB each. Clearing, disabling the clipboard module or exiting Spot discards history. Empty/non-text offers and MIME types containing password, secret or KeePass hints are excluded before reading. Applications must supply these hints; unmarked secrets cannot be recognized automatically. With both modules disabled, no backend, worker thread, polling timer, clipboard subscription or helper process is created.
+
+On GNOME, install the companion separately (it is not installed by `make install`):
+
+```bash
+gnome-extensions pack extensions/spot-desktop@andrea.dev --out-dir /tmp --force
+gnome-extensions install /tmp/spot-desktop@andrea.dev.shell-extension.zip --force
+# Log out and back in if GNOME has not discovered the new extension.
+gnome-extensions enable spot-desktop@andrea.dev
+```
+
+The extension offers `dev.andrea.Spot.Desktop` on the session bus with `ListWindows`, `FocusWindow`, `SetClipboardEnabled` and `ClipboardChanged`. It watches clipboard ownership only while an explicitly enabled Spot client requests it, stops when the client disconnects, and stores no clipboard history itself. GNOME Shell 45–51 are declared in its metadata; version-specific integration should be tested before distributing it.
+
+On other Wayland compositors, the native worker binds `ext_data_control_manager_v1` for clipboard history and `zwlr_foreign_toplevel_manager_v1` for windows, only for enabled modules. No external helper or runtime is needed. The protocols are compositor-dependent; GNOME does not normally expose them. This module does not add an X11 desktop backend.
+
+
 ## Settings
 
 Everything is set in one file, `~/.config/spot/spot.conf`. It is watched: save it and the open window changes, no restart. There is no settings window; the launcher itself lists the settings.
@@ -402,7 +430,7 @@ Requirements: GTK 4.12+, libadwaita 1, GLib, libsoup 3, `plocate` for file searc
 
 **`requires rustc 1.92` when building.** Your Rust is too old, install a newer one with [rustup](https://rustup.rs).
 
-**Limits.** On GNOME, background clipboard history and window listing need a companion Shell extension, which Spot does not yet ship. On wlroots-based and other compositors supporting [ext-data-control-v1](https://wayland.app/protocols/ext-data-control-v1) and [wlr-foreign-toplevel-management](https://wayland.app/protocols/wlr-foreign-toplevel-management-unstable-v1), these features are technically possible. Support depends on each compositor; Wayland does not make them impossible in general. See [Vicinae’s compositor support](https://docs.vicinae.com/window) and its [GNOME Shell extension](https://github.com/vicinaehq/gnome-extension).
+**Limits.** Wayland support depends on the compositor. On GNOME, background clipboard history and window listing need a Shell extension; Spot's optional [desktop bridge](#clipboard-history-and-windows) is shipped separately and must be installed and enabled. Without it those modules report that the backend is unavailable. On wlroots-based and other compositors implementing [ext-data-control-v1](https://wayland.app/protocols/ext-data-control-v1) and [wlr-foreign-toplevel-management](https://wayland.app/protocols/wlr-foreign-toplevel-management-unstable-v1), those capabilities are technically available and Spot uses the advertised protocols. Support for one does not imply support for the other. See also [Vicinae's compositor support](https://docs.vicinae.com/window) and its [GNOME extension](https://github.com/vicinaehq/gnome-extension).
 
 ## How it works
 

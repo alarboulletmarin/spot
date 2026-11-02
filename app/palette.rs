@@ -151,6 +151,44 @@ fn all(config: &Config, palettes: &[String], in_search: bool) -> Vec<Row> {
         ));
     }
 
+    for (key, enabled, title, prefix) in [
+        (
+            "Clipboard",
+            config.clipboard_enabled,
+            tr("Clipboard history"),
+            "clipboard:",
+        ),
+        (
+            "Windows",
+            config.windows_enabled,
+            tr("Window switcher"),
+            "windows:",
+        ),
+    ] {
+        rows.push((
+            "modules clipboard windows".into(),
+            Hit {
+                title: title.clone(),
+                then: Then::Query(prefix.into()),
+                ..Default::default()
+            },
+        ));
+        rows.push((
+            "modules clipboard windows".into(),
+            Hit {
+                title: format!(
+                    "{title}: {}",
+                    if enabled { tr("Disable") } else { tr("Enable") }
+                ),
+                activate: Box::new(move |_| {
+                    config::set("Modules", key, if enabled { "false" } else { "true" })
+                }),
+                then: Then::Refresh,
+                ..Default::default()
+            },
+        ));
+    }
+
     // `settings` in an ordinary search gets one row that leads here, not the whole list
     if in_search {
         rows.push((

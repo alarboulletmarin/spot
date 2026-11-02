@@ -222,3 +222,45 @@ msgstr "Script"
 
 msgid "Run this script?"
 msgstr "Exécuter ce script ?"
+
+msgid "Module disabled"
+msgstr "Module désactivé"
+
+msgid "Enable it explicitly in spot.conf"
+msgstr "Activez-le explicitement dans spot.conf"
+
+msgid "Desktop backend unavailable"
+msgstr "Service du bureau indisponible"
+
+msgid "Enable the Spot GNOME extension or use a compositor supporting the required Wayland protocols"
+msgstr "Activez l’extension GNOME Spot ou utilisez un compositeur prenant en charge les protocoles Wayland requis"
+
+msgid "Clipboard"
+msgstr "Presse-papiers"
+
+msgid "Clear clipboard history"
+msgstr "Effacer l’historique du presse-papiers"
+
+msgid "Clear"
+msgstr "Effacer"
+
+msgid "Window"
+msgstr "Fenêtre"
+
+msgid "Focus"
+msgstr "Activer"
+
+msgid "No windows"
+msgstr "Aucune fenêtre"
+
+msgid "Clipboard history"
+msgstr "Historique du presse-papiers"
+
+msgid "Window switcher"
+msgstr "Sélecteur de fenêtres"
+
+msgid "Disable"
+msgstr "Désactiver"
+
+msgid "Enable"
+msgstr "Activer"

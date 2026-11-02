@@ -110,6 +110,7 @@ pub struct Ui {
 
 impl Ui {
     pub fn new(app: &impl IsA<gtk::Application>, data: Rc<AppData>) -> Rc<Self> {
+        crate::desktop::init();
         let win = gtk::ApplicationWindow::builder()
             .application(app)
             .decorated(false)
@@ -464,7 +465,7 @@ impl Ui {
         if query.is_empty() {
             return self.render();
         }
-        if let Some(hits) = prefix::hits(&query) {
+        if let Some(hits) = crate::desktop::rows(&query).or_else(|| prefix::hits(&query)) {
             // `!ls`, `search: …`: the query is an instruction, not something to look for
             let hits = hits.into_iter().map(Rc::new).collect();
             self.sections.borrow_mut().insert("prefix".into(), hits);
@@ -825,4 +826,169 @@ fn row_for(hit: &Hit, position: usize, query: &str) -> gtk::ListBoxRow {
         .css_classes(["spot-row"])
         .child(&row_box)
         .build()
+}
+
+#[cfg(test)]
+mod integration_tests {
+    use super::*;
+    fn settle() {
+        let context = glib::MainContext::default();
+        let until = std::time::Instant::now() + Duration::from_millis(150);
+        while std::time::Instant::now() < until {
+            while context.pending() {
+                context.iteration(false);
+            }
+            std::thread::sleep(Duration::from_millis(2));
+        }
+    }
+    fn clipboard_text(display: &gdk::Display) -> String {
+        let result = Rc::new(RefCell::new(None));
+        let r = result.clone();
+        display
+            .clipboard()
+            .read_text_async(gio::Cancellable::NONE, move |v| {
+                *r.borrow_mut() = Some(v.unwrap().unwrap().to_string())
+            });
+        settle();
+        result.take().expect("clipboard did not respond")
+    }
+    #[test]
+    #[ignore = "requires a private D-Bus session, Xvfb and empty HOME; see docs/ISSUE-IMPLEMENTATION.md"]
+    fn keyboard_results_clipboard_and_styles() {
+        crate::init_translations();
+        gtk::init().unwrap();
+        let app = adw::Application::builder()
+            .flags(gio::ApplicationFlags::NON_UNIQUE)
+            .build();
+        app.register(gio::Cancellable::NONE).unwrap();
+        let data = AppData::new(None);
+        data.apps.borrow_mut().clear();
+        for name in ["Firefox", "Firebird"] {
+            let keyfile = glib::KeyFile::new();
+            keyfile
+                .load_from_data(
+                    &format!("[Desktop Entry]\nType=Application\nName={name}\nExec=/bin/true\n"),
+                    glib::KeyFileFlags::NONE,
+                )
+                .unwrap();
+            let info = gio_unix::DesktopAppInfo::from_keyfile(&keyfile)
+                .unwrap()
+                .upcast();
+            data.apps.borrow_mut().push(AppEntry {
+                info,
+                id: name.into(),
+                name: name.into(),
+                generic: None,
+                aliases: vec![],
+                description: String::new(),
+                icon: gio::ThemedIcon::new("firefox").upcast(),
+            });
+        }
+        let ui = Ui::new(&app, data);
+        style::install(&ui.win);
+        ui.present_fresh();
+        settle();
+        ui.set_query("fir");
+        ui.search();
+        assert_eq!(ui.ghost.text(), "firefox");
+        ui.entry.set_position(1);
+        assert!(ui.ghost.text().is_empty());
+        assert_eq!(
+            ui.on_key(gdk::Key::Right, 0, gdk::ModifierType::empty()),
+            glib::Propagation::Proceed
+        );
+        ui.entry.set_position(-1);
+        ui.on_key(gdk::Key::Tab, 0, gdk::ModifierType::empty());
+        assert_eq!(ui.entry.text(), "Firefox");
+        ui.set_query("fir");
+        ui.search();
+        ui.move_selection(1);
+        assert!(ui.ghost.text().is_empty());
+        let selected = ui.selected_hit().unwrap();
+        ui.on_suggestions(vec!["firebird facts".into()]);
+        assert!(Rc::ptr_eq(&selected, &ui.selected_hit().unwrap()));
+        assert_eq!(ui.results.borrow().last().unwrap().kind, tr("Web"));
+        for query in ["ff", ">", "!fir", "search: fir", "https://example.com"] {
+            ui.set_query(query);
+            ui.search();
+            assert!(ui.ghost.text().is_empty(), "{query}");
+        }
+        // Enter activates the selected row without accepting its visible completion.
+        let count = Rc::new(Cell::new(0));
+        let c = count.clone();
+        ui.set_query("fir");
+        ui.sections.borrow_mut().clear();
+        ui.sections.borrow_mut().insert(
+            "apps".into(),
+            vec![Rc::new(Hit {
+                title: "Firefox".into(),
+                kind: tr("Application"),
+                activate: Box::new(move |_| {
+                    c.set(c.get() + 1);
+                    Ok(())
+                }),
+                ..Default::default()
+            })],
+        );
+        ui.render();
+        ui.activate_selected(false);
+        assert_eq!(count.get(), 1);
+        assert_eq!(ui.entry.text(), "fir");
+        ui.present_fresh();
+        ui.set_query("2^10 * 3");
+        ui.search();
+        assert_eq!(ui.selected_hit().unwrap().kind, tr("Calculator"));
+        ui.activate_selected(false);
+        let display = WidgetExt::display(&ui.win);
+        assert_eq!(clipboard_text(&display), "3072");
+        ui.present_fresh();
+        ui.set_query("0xff+1");
+        ui.search();
+        ui.activate_selected(true);
+        assert_eq!(clipboard_text(&display), "0x100");
+        // Render all styles, themes and a narrow card. Pango attributes carry highlighting
+        // independently of CSS palettes; optional PNG artifacts permit visual review.
+        ui.present_fresh();
+        ui.set_query("fir");
+        ui.search();
+        for (name, style) in style::Style::ALL {
+            for (scheme_name, scheme) in [
+                ("light", style::Scheme::Light),
+                ("dark", style::Scheme::Dark),
+            ] {
+                style::preview(&style::Appearance {
+                    style,
+                    scheme,
+                    palette: Some("nord".into()),
+                });
+                ui.win.set_default_size(440, -1);
+                settle();
+                assert!(ui.win.width() <= 500, "narrow width: {}", ui.win.width());
+                if let Ok(dir) = std::env::var("SPOT_TEST_SCREENSHOTS") {
+                    let paintable = gtk::WidgetPaintable::new(Some(&ui.win));
+                    let snapshot = gtk::Snapshot::new();
+                    paintable.snapshot(&snapshot, ui.win.width() as f64, ui.win.height() as f64);
+                    if let Some(node) = snapshot.to_node() {
+                        let texture = ui.win.renderer().unwrap().render_texture(&node, None);
+                        texture
+                            .save_to_png(
+                                std::path::Path::new(&dir)
+                                    .join(format!("{name}-{scheme_name}.png")),
+                            )
+                            .unwrap();
+                    }
+                }
+            }
+        }
+        ui.set_query("");
+        ui.search();
+        assert!(ui.results.borrow().is_empty());
+        ui.set_query("zzzzzzzz");
+        ui.search();
+        assert!(ui.results.borrow().is_empty());
+        ui.set_query("clipboard:");
+        ui.search();
+        assert_eq!(ui.selected_hit().unwrap().title, tr("Module disabled"));
+        ui.win.close();
+    }
 }

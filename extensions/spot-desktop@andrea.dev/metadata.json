@@ -1,0 +1,8 @@
+{
+  "uuid": "spot-desktop@andrea.dev",
+  "name": "Spot Desktop Bridge",
+  "description": "Optional local window and clipboard bridge for Spot. Clipboard watching starts only when requested by Spot.",
+  "shell-version": ["45", "46", "47", "48", "49", "50", "51"],
+  "version": 1,
+  "url": "https://github.com/alarboulletmarin/spot"
+}
