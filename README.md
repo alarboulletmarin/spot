@@ -338,7 +338,7 @@ Requirements: GTK 4.12+, libadwaita 1, GLib, `plocate` for file search. Building
 
 **`requires rustc 1.92` when building.** Your Rust is too old, install a newer one with [rustup](https://rustup.rs).
 
-**Limits.** No clipboard history and no window switcher: under Wayland, a background application can neither watch the clipboard nor list windows.
+**Limits.** On GNOME, background clipboard history and window listing need a companion Shell extension, which Spot does not yet ship. On wlroots-based and other compositors supporting [ext-data-control-v1](https://wayland.app/protocols/ext-data-control-v1) and [wlr-foreign-toplevel-management](https://wayland.app/protocols/wlr-foreign-toplevel-management-unstable-v1), these features are technically possible. Support depends on each compositor; Wayland does not make them impossible in general. See [Vicinae’s compositor support](https://docs.vicinae.com/window) and its [GNOME Shell extension](https://github.com/vicinaehq/gnome-extension).
 
 ## How it works
 
