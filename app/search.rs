@@ -135,6 +135,23 @@ pub fn fuzzy_score(query: &str, text: &str) -> i32 {
     fuzzy_match(query, text).map_or(-1, |m| m.score)
 }
 
+/// Only a literal prefix can be completed. The suffix never becomes entry text on Enter.
+pub fn completion(query: &str, title: &str) -> Option<String> {
+    if query.is_empty() {
+        return None;
+    }
+    let count = query.chars().count();
+    if !query
+        .chars()
+        .map(folded)
+        .eq(title.chars().take(count).map(folded))
+    {
+        return None;
+    }
+    let suffix: String = title.chars().skip(count).collect();
+    (!suffix.is_empty()).then_some(suffix)
+}
+
 /// Name first, then generic name, then keywords / executable, each less direct than the last.
 pub fn app_score(query: &str, name: &str, generic: Option<&str>, aliases: &[String]) -> i32 {
     std::iter::once(fuzzy_score(query, name))
@@ -286,5 +303,13 @@ mod matching_tests {
         assert_eq!(fuzzy_match("ét", "Été").unwrap().positions, [0, 1]);
         assert_eq!(fuzzy_match("chorme", "Chrome").unwrap().positions, [0, 1]);
         assert!(fuzzy_score("aB", "alphaBeta") >= 3000);
+    }
+    #[test]
+    fn literal_completion_only() {
+        assert_eq!(completion("fir", "Firefox").as_deref(), Some("efox"));
+        assert_eq!(completion("é", "Éditeur").as_deref(), Some("diteur"));
+        for q in ["", "ff", "Firefox", "firfox"] {
+            assert_eq!(completion(q, "Firefox"), None);
+        }
     }
 }

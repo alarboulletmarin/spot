@@ -34,6 +34,7 @@ pub enum Command {
     /// Leave the palette, or close the window.
     Back,
     Settings,
+    Complete,
     /// Launch the Nth row, from 1.
     Pick(u8),
 }
@@ -70,6 +71,7 @@ pub fn default_keys() -> Vec<(String, Command, String)> {
         ),
         ("Back", Command::Back, "Escape"),
         ("Settings", Command::Settings, "<Ctrl>comma"),
+        ("Complete", Command::Complete, "Tab;Right"),
     ];
     fixed
         .into_iter()
@@ -238,6 +240,11 @@ impl Config {
             }
         }
 
+        bindings.sort_by_key(|(command, _)| {
+            !defaults
+                .iter()
+                .any(|(name, c, _)| c == command && keyfile.has_key("Keys", name).unwrap_or(false))
+        });
         Config {
             appearance,
             terminal: get("Terminal", "Command"),
@@ -587,7 +594,8 @@ mod tests {
                 .split("```ini\n")
                 .skip(1) // what comes before the first example is prose
                 .filter_map(|rest| rest.split("```").next())
-                .find(|block| block.contains(group))
+                .filter(|block| block.contains(group))
+                .last()
                 .unwrap_or_else(|| panic!("a {group} example in the README"));
             let config = parse(block);
             assert!(config.errors.is_empty(), "{group}: {:?}", config.errors);
@@ -603,5 +611,26 @@ mod tests {
             Some(Command::Settings)
         );
         assert_eq!(keys.command(gdk::Key::j, 44, M::CONTROL_MASK), None); // replaced
+    }
+}
+
+#[cfg(test)]
+mod opt_in_tests {
+    use super::*;
+    fn parse(s: &str) -> Config {
+        Config::parse(s, &[])
+    }
+    #[test]
+    fn explicit_binding_overrides_default_completion() {
+        let c = parse("[Keys]\nPick1=Tab\n");
+        assert_eq!(
+            c.keys.command(gdk::Key::Tab, 0, gdk::ModifierType::empty()),
+            Some(Command::Pick(1))
+        );
+        assert_eq!(
+            c.keys
+                .command(gdk::Key::Right, 0, gdk::ModifierType::empty()),
+            Some(Command::Complete)
+        );
     }
 }

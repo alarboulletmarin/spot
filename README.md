@@ -192,9 +192,18 @@ The terminal can be named in `~/.config/spot/spot.conf`; without it, spot picks 
 Command=alacritty -e
 ```
 
-## Matching
+## Matching and completion
 
 `vsc` finds Visual Studio Code and `gt` finds GNOME Terminal. `chorme`, `firfox` and `calandar` can find Chrome, Firefox and Calendar. Matched title characters are bold, including with compact/mono styles and palettes. Typo matches highlight only the exact common prefix.
+
+When the first selected result is an application whose name starts with the typed query, the remaining name appears in grey. **Tab** or **Right**, at the end of the entry without a selection, accepts it. **Enter always activates the selected row**. Prefixes, addresses, the settings palette, mid-entry cursors and non-prefix fuzzy matches have no completion. An explicit user key binding takes precedence over a default completion key.
+
+```ini
+[Keys]
+Complete=Tab;Right
+# Next=Tab overrides Tab completion; Right still completes.
+```
+
 
 ## Settings
 

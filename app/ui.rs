@@ -84,6 +84,7 @@ impl AppData {
 pub struct Ui {
     pub win: gtk::ApplicationWindow,
     entry: gtk::Entry,
+    ghost: gtk::Label,
     sep: gtk::Box,
     list: gtk::ListBox,
     scroller: gtk::ScrolledWindow,
@@ -135,7 +136,16 @@ impl Ui {
                 .css_classes(["spot-search-icon"])
                 .build(),
         );
-        search.append(&entry);
+        let ghost = gtk::Label::builder()
+            .xalign(0.0)
+            .valign(gtk::Align::Center)
+            .ellipsize(pango::EllipsizeMode::End)
+            .css_classes(["spot-entry", "spot-ghost"])
+            .can_target(false)
+            .build();
+        let overlay = gtk::Overlay::builder().child(&entry).hexpand(true).build();
+        overlay.add_overlay(&ghost);
+        search.append(&overlay);
         card.append(&search);
 
         let sep = gtk::Box::builder()
@@ -173,6 +183,7 @@ impl Ui {
         let ui = Rc::new(Ui {
             win,
             entry,
+            ghost,
             sep,
             list,
             scroller,
@@ -200,9 +211,19 @@ impl Ui {
         ui.list
             .connect_row_activated(move |_, row| u.activate_row(Some(row), false));
         let u = ui.clone();
-        ui.list.connect_row_selected(move |_, _| u.update_footer());
+        ui.list.connect_row_selected(move |_, _| {
+            u.update_footer();
+            u.update_completion();
+        });
 
+        let u = ui.clone();
+        ui.entry
+            .connect_cursor_position_notify(move |_| u.update_completion());
+        let u = ui.clone();
+        ui.entry
+            .connect_selection_bound_notify(move |_| u.update_completion());
         let keys = gtk::EventControllerKey::new();
+        keys.set_propagation_phase(gtk::PropagationPhase::Capture);
         let u = ui.clone();
         keys.connect_key_pressed(move |_, key, keycode, state| u.on_key(key, keycode, state));
         let u = ui.clone();
@@ -249,6 +270,14 @@ impl Ui {
             return glib::Propagation::Proceed;
         };
         match command {
+            Command::Complete => {
+                if self.completion_title().is_some() {
+                    let title = self.completion_title().unwrap();
+                    self.set_query(&title);
+                } else {
+                    return glib::Propagation::Proceed;
+                }
+            }
             Command::Next => self.move_selection(1),
             Command::Previous => self.move_selection(-1),
             Command::NextPage => self.move_selection(self.page()),
@@ -262,6 +291,38 @@ impl Ui {
             }
         }
         glib::Propagation::Stop
+    }
+
+    fn completion_title(&self) -> Option<String> {
+        let query = self.entry.text();
+        if self.entry.position() != query.chars().count() as i32
+            || self.entry.selection_bounds().is_some()
+            || prefix::is_instruction(&query)
+            || self.list.selected_row().is_none_or(|r| r.index() != 0)
+        {
+            return None;
+        }
+        let results = self.results.borrow();
+        let hit = results.first()?;
+        if hit.kind != tr("Application") {
+            return None;
+        }
+        completion(&query, &hit.title)?;
+        Some(hit.title.clone())
+    }
+
+    fn update_completion(&self) {
+        let Some(title) = self.completion_title() else {
+            self.ghost.set_label("");
+            return;
+        };
+        let query = self.entry.text();
+        let suffix = completion(&query, &title).unwrap_or_default();
+        self.ghost.set_markup(&format!(
+            "<span alpha=\"1\">{}</span><span alpha=\"35%\">{}</span>",
+            glib::markup_escape_text(&query),
+            glib::markup_escape_text(&suffix)
+        ));
     }
 
     fn in_palette(&self) -> bool {
@@ -363,18 +424,24 @@ impl Ui {
     // -- search ----------------------------------------------------------
 
     fn on_changed(self: &Rc<Self>) {
+        self.ghost.set_label("");
+        self.cancellable.borrow().cancel();
+        self.generation.set(self.generation.get().wrapping_add(1));
         if let Some(id) = self.debounce.take() {
             id.remove();
         }
         let ui = self.clone();
         *self.debounce.borrow_mut() = Some(glib::timeout_add_local(DEBOUNCE, move || {
+            ui.debounce.take();
             ui.search();
             glib::ControlFlow::Break
         }));
     }
 
     fn search(self: &Rc<Self>) {
-        self.debounce.take(); // fired: its id is gone, removing it later would be an error
+        if let Some(id) = self.debounce.take() {
+            id.remove();
+        }
         let generation = self.generation.get().wrapping_add(1);
         self.generation.set(generation);
         self.settled.set(false);
@@ -551,7 +618,10 @@ impl Ui {
 
     fn show_results(&self, results: Vec<Rc<Hit>>) {
         // keep the user's pick when late results land
-        let index = self.list.selected_row().map_or(0, |r| r.index());
+        let selected = self.selected_hit();
+        let index = selected
+            .and_then(|pick| results.iter().position(|hit| Rc::ptr_eq(hit, &pick)))
+            .unwrap_or(0) as i32;
         self.list.remove_all();
         for (position, hit) in results.iter().enumerate() {
             self.list
@@ -567,6 +637,7 @@ impl Ui {
             self.list
                 .select_row(self.list.row_at_index(index.min(last)).as_ref());
         }
+        self.update_completion();
         if self.previewing.get() {
             self.sync_preview(); // the row under the selection may have changed
         }

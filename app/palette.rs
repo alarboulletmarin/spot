@@ -176,6 +176,7 @@ fn all(config: &Config, palettes: &[String], in_search: bool) -> Vec<Row> {
         (Command::Alternate, tr("Second action of the result")),
         (Command::Back, tr("Leave the settings, or close")),
         (Command::Settings, tr("Settings")),
+        (Command::Complete, tr("Complete")),
     ] {
         shortcut(title, labels(command));
     }
@@ -263,7 +264,7 @@ mod tests {
         assert_eq!(titles("zzz", false), [] as [&str; 0]);
         // a keyword finds the whole family
         assert_eq!(titles("theme", false).len(), appearance_rows);
-        assert_eq!(titles("keys", false).len(), 8);
+        assert_eq!(titles("keys", false).len(), 9);
     }
 
     #[test]

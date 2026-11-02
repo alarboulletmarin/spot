@@ -188,3 +188,6 @@ msgstr ""
 
 msgid "Launch"
 msgstr ""
+
+msgid "Complete"
+msgstr ""

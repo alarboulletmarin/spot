@@ -183,3 +183,6 @@ msgstr "Retour"
 
 msgid "Launch"
 msgstr "Lancer"
+
+msgid "Complete"
+msgstr "Compléter"

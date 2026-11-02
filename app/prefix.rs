@@ -366,6 +366,11 @@ fn resolve_terminal(command: &str) -> Option<Vec<String>> {
     Some(argv)
 }
 
+/// Whether input belongs to an explicit prefix or address action.
+pub fn is_instruction(query: &str) -> bool {
+    parse(query).is_some()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

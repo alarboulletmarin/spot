@@ -51,6 +51,7 @@ window.spot { background: transparent; }
     caret-color: @accent_color;
 }
 .spot-entry:focus-within { outline: none; box-shadow: none; }
+.spot-ghost { color: @window_fg_color; }
 .spot-entry placeholder { opacity: 0.4; }
 
 .spot-sep { background-color: alpha(currentColor, 0.10); min-height: 1px; }

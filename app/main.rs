@@ -59,7 +59,6 @@ fn app_id() -> String {
 
 fn main() -> glib::ExitCode {
     init_translations();
-
     let app = adw::Application::builder()
         .application_id(app_id())
         .flags(gio::ApplicationFlags::HANDLES_COMMAND_LINE)
