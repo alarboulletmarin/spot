@@ -1,0 +1,113 @@
+{
+  "environment": {
+    "distro": "NAME=\"Arch Linux\"\nPRETTY_NAME=\"Arch Linux\"\nID=arch\nBUILD_ID=rolling\nANSI_COLOR=\"38;2;23;147;209\"\nHOME_URL=\"https://archlinux.org/\"\nDOCUMENTATION_URL=\"https://wiki.archlinux.org/\"\nSUPPORT_URL=\"https://bbs.archlinux.org/\"\nBUG_REPORT_URL=\"https://gitlab.archlinux.org/groups/archlinux/-/issues\"\nPRIVACY_POLICY_URL=\"https://terms.archlinux.org/docs/privacy-policy/\"\nLOGO=archlinux-logo\n",
+    "cpu": "13th Gen Intel(R) Core(TM) i9-13900H",
+    "logical_cpus": 20,
+    "kernel": "7.2.14-arch1-1",
+    "renderer": "name of display: :2\ndisplay: :2  screen: 0\ndirect rendering: Yes\nExtended renderer info (GLX_MESA_query_renderer):\n    Vendor: Mesa (0xffffffff)\n    Device: llvmpipe (LLVM 23.1.4, 256 bits) (0xffffffff)\n    Version: 26.2.6\n    Accelerated: no\n    Video memory: 63964MB\n    Unified memory: yes\n    Preferred profile: core (0x1)\n    Max core profile version: 4.6\n    Max compat profile version: 4.6\n    Max GLES1 profile version: 1.1\n    Max GLES[23] profile version: 3.2\nMemory info (GL_ATI_meminfo):\n    VBO free memory - total: 0 MB, largest block: 0 MB\n    VBO free aux. memory - total: 54762 MB, largest block: 54762 MB\n    Texture free memory - total: 0 MB, largest block: 0 MB\n    Texture free aux. memory - total: 54762 MB, largest block: 54762 MB\n    Renderbuffer free memory - total: 0 MB, largest block: 0 MB\n    Renderbuffer free aux. memory - total: 54762 MB, largest block: 54762 MB\nMemory info (GL_NVX_gpu_memory_info):\n    Dedicated video memory: 0 MB\n    Total available memory: 63964 MB\n    Currently available dedicated video memory: 0 MB\nOpenGL vendor string: Mesa\nOpenGL renderer string: llvmpipe (LLVM 23.1.4, 256 bits)\nOpenGL core profile version string: 4.6 (Core Profile) Mesa 26.2.6-arch1.1\nOpenGL core profile shading language version string: 4.60\nOpenGL core profile context flags: (none)\nOpenGL core profile profile mask: core profile\n\nOpenGL version string: 4.6 (Compatibility Profile) Mesa 26.2.6-arch1.1\nOpenGL shading language version string: 4.60\nOpenGL context flags: (none)\nOpenGL profile mask: compatibility profile\n\nOpenGL ES profile version string: OpenGL ES 3.2 Mesa 26.2.6-arch1.1\nOpenGL ES profile shading language version string: OpenGL ES GLSL ES 3.20",
+    "gsk_renderer": "gl",
+    "session": "private Xvfb / X11",
+    "home": "empty temporary HOME and XDG directories",
+    "revision": "4812f6980ac9f6100bc582635b0ba02d8e094b04",
+    "version": "spot 0.5.1",
+    "tracked_changes": true,
+    "binary_sha256": {
+      "spot": "844f9c00ca2bd8ad42d3c71c4b39fb9f1b591354de5a775d262ecc5c4dbf094e",
+      "spot-resident": "47f4eff0dca9c8dd3724bac004d37628807300248b212bc6a5ddebe1644b853f"
+    }
+  },
+  "method": {
+    "runs": 20,
+    "idle_seconds": 2,
+    "ready": "process spawn to NameOwnerChanged; acquisition precedes completion of GTK startup",
+    "cold": "first activation of each newly started daemon to X11 MapNotify",
+    "warm": "launcher process spawn to X11 MapNotify after previous UnmapNotify",
+    "clock": "perf_counter_ns; observer/event-delivery latency included",
+    "memory": "sum smaps_rollup of resident and all current descendants; windows hidden"
+  },
+  "ready_ms": {
+    "median": 46.73201400000001,
+    "samples": [
+      49.159542,
+      36.822242,
+      38.062177,
+      45.826365,
+      45.089836,
+      39.593296,
+      48.268338,
+      49.632157,
+      42.350292,
+      38.868315,
+      48.475276,
+      53.780837,
+      37.957647,
+      53.051947,
+      45.475182,
+      47.637663,
+      59.549103,
+      60.492493,
+      59.956095,
+      38.739922
+    ]
+  },
+  "cold_ms": {
+    "median": 205.823379,
+    "samples": [
+      372.573209,
+      219.460168,
+      202.087916,
+      194.646392,
+      231.038036,
+      195.194507,
+      194.133299,
+      189.764573,
+      213.885033,
+      209.45816,
+      210.597784,
+      203.978106,
+      216.31584,
+      184.702378,
+      255.83031,
+      190.763515,
+      227.799895,
+      196.331696,
+      206.185279,
+      205.461479
+    ]
+  },
+  "warm_ms": {
+    "median": 7.3795044999999995,
+    "samples": [
+      5.406839,
+      5.53547,
+      7.12015,
+      7.897489,
+      10.07506,
+      6.594763,
+      7.161785,
+      9.530359,
+      8.294334,
+      8.818158,
+      7.237505,
+      7.221395,
+      6.466725,
+      7.571436,
+      7.589685,
+      9.946358,
+      8.746287,
+      7.521504,
+      6.77321,
+      6.62581
+    ]
+  },
+  "idle": {
+    "rss_kib": 349264,
+    "pss_kib": 143490,
+    "processes": 1
+  },
+  "binary_bytes": {
+    "spot": 348176,
+    "spot-resident": 1226488
+  },
+  "total_binary_bytes": 1574664
+}

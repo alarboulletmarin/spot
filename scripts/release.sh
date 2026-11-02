@@ -31,11 +31,12 @@ else
 fi
 
 sed -i "0,/^version = .*/s//version = \"$ver\"/" Cargo.toml
-sed -i "s/^pkgver=.*/pkgver=$ver/" PKGBUILD
+sed -i "s/^pkgver=.*/pkgver=$ver/" PKGBUILD aur/spot/PKGBUILD
+sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD aur/spot/PKGBUILD
 cargo update -p spot --offline -q
 cargo test --locked -q
 
-git add Cargo.toml Cargo.lock PKGBUILD
+git add Cargo.toml Cargo.lock PKGBUILD aur/spot/PKGBUILD
 git commit -q -m "chore: release $ver"
 git tag -a "v$ver" -m "spot $ver"
 git push origin main "v$ver"
@@ -49,9 +50,13 @@ for _ in 1 2 3 4 5; do
     sleep 3
 done
 [ -n "$sha" ] || die "could not hash $url; pin it by hand"
-sed -i "s/^sha256sums=.*/sha256sums=('$sha')/" PKGBUILD
+sed -i "s/^sha256sums=.*/sha256sums=('$sha')/" PKGBUILD aur/spot/PKGBUILD
 makepkg --printsrcinfo >.SRCINFO
-git add PKGBUILD .SRCINFO
+(cd aur/spot && makepkg --printsrcinfo >.SRCINFO)
+git add PKGBUILD .SRCINFO aur/spot/PKGBUILD aur/spot/.SRCINFO
 git commit -q -m "build: pin v$ver checksum for the AUR"
 git push origin main
 echo "released v$ver ($sha)"
+
+# Publishing to the AUR is deliberately a separate maintainer action.
+echo "AUR: review aur/spot/{PKGBUILD,.SRCINFO}, test makepkg in a clean Arch chroot, then update your AUR checkout."

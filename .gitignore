@@ -17,3 +17,5 @@
 /aur/*/src/
 /aur/*/pkg/
 /aur/*/spot/
+
+__pycache__/

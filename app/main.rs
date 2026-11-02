@@ -94,10 +94,15 @@ fn main() -> glib::ExitCode {
         let _ = w.set(ui);
     });
 
-    app.connect_command_line(|app, command_line| {
+    let w = window.clone();
+    app.connect_command_line(move |app, command_line| {
         let args = command_line.arguments();
         if args.iter().any(|a| a == "--quit") {
             app.quit();
+        } else if args.iter().any(|a| a == "--hide") {
+            if let Some(ui) = w.get() {
+                ui.dismiss();
+            }
         } else if !args.iter().any(|a| a == "--daemon") {
             app.activate(); // --daemon: start resident without showing the window
         }

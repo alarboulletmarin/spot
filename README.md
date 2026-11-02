@@ -2,6 +2,8 @@
 
 Application and file launcher for Linux, in Rust + GTK4 / libadwaita. Press a shortcut, type, press Enter: the window is gone as soon as you launch something. Think Raycast or Spotlight, for GNOME and other GTK4 desktops.
 
+Native GNOME UI (GTK4/libadwaita), minimal, with no network access by default and no telemetry. Optional [web suggestions](#suggestions) send eligible input only after you explicitly enable them and select an engine. User-launched browsers, scripts and external search providers have their own network behavior. [Reproducible footprint and latency measurements](BENCHMARKS.md).
+
 ![spot, default style, light and dark](docs/screenshots/default.png)
 
 [Features](#features) · [Install](#install) · [First run](#first-run) · [Using spot](#using-spot) · [Prefixes](#prefixes) · [Settings](#settings) · [Appearance](#appearance) · [Compatibility](#compatibility) · [Troubleshooting](#troubleshooting) · [How it works](#how-it-works) · [Development](#development)
@@ -12,6 +14,10 @@ Application and file launcher for Linux, in Rust + GTK4 / libadwaita. Press a sh
 - **Files** in your home directory, found as you type.
 - **Built-in calculator**: decimal/hex input, functions and clipboard actions, independent of GNOME Calculator.
 - **GNOME Activities search providers**: Settings panels, Nautilus files and other installed providers.
+- **Fuzzy matching**: literal matches, initials and bounded typo tolerance, with matched characters highlighted.
+- **Inline completion**: Tab or Right accepts an application-name prefix; Enter launches the selected result.
+- **Script commands and dmenu**: existing system interpreters, no bundled runtime.
+- **Optional desktop modules**: bounded clipboard history and window switching; disabled by default.
 - **Commands**: if nothing matches, Enter runs what you typed.
 - **Web search**: if nothing matches, a last row hands what you typed to your browser, which searches with its own engine.
 - **Prefixes**: `!htop` runs in a terminal, `search: rust` searches in your browser. See [Prefixes](#prefixes).
@@ -48,7 +54,14 @@ cd spot/aur/spot-launcher-git
 makepkg -si
 ```
 
-Or build the latest tagged release yourself with `makepkg -si` from the repository root. Not on the AUR yet.
+Or build the latest tagged release yourself with `makepkg -si` from the repository root. An AUR-ready tagged-source recipe is also in [`aur/spot`](aur/spot):
+
+```bash
+cd aur/spot
+makepkg -si
+```
+
+The recipe builds the pinned release and conflicts with `spot-launcher` / `spot-launcher-git` because they install the same binaries. Its presence here does **not** mean it has been submitted to the AUR. After a maintainer publishes it, it can also be installed with `yay -S spot`; until then use the local recipe.
 
 Optional: `plocate`, for file search.
 
@@ -205,13 +218,11 @@ Complete=Tab;Right
 # Next=Tab overrides Tab completion; Right still completes.
 ```
 
-
 ## Calculator
 
 Calculations appear synchronously above applications, without a GNOME Calculator installation. Supported syntax: decimal `.` or `,`, `0x` hexadecimal and `0b` binary input, `+ - * / % ^`, `× ÷`, parentheses, unary signs, `pi`, `e`, and `sqrt sin cos tan ln log abs`. Powers associate to the right (`2^3^2 = 512`), and `-2^2 = -4`; trigonometric arguments use radians. Bare numbers and constants remain searches. Invalid or nonfinite results produce no calculator row.
 
 `2^10 * 3` gives 3072 with `0xC00` underneath; `0xff + 1` gives 256 / `0x100`. Display grouping follows the system numeric locale. Enter copies the ungrouped decimal result; Ctrl+Enter copies hexadecimal when a positive integer can be represented. The footer shows both actions. The built-in row suppresses the GNOME Calculator provider for that query. Arithmetic uses finite `f64` values, so very large integers have floating-point precision limits.
-
 
 ## Suggestions
 
@@ -230,7 +241,6 @@ Enabling sends eligible input, plus the normal connection IP address, to the cho
 Input containing `.`, `/`, `\`, `@`, `:`, control characters, `!`, `>`, or `~`, anything containing `localhost`, inputs shorter than 2 or longer than 100 characters, calculations (including incomplete ones), and commands whose first word is on `PATH` are not sent. This is a conservative filter, not a promise to detect every possible secret: keep suggestions disabled when entering private text.
 
 Requests use libsoup 3's native TLS and cancellable GLib asynchronous I/O; it adds a small system library dependency rather than a browser engine, Node or a second async runtime. There is no cookie jar, identifier, authentication handler, logger, redirect following or disk cache. Responses are capped at 64 KiB. A 64-entry FIFO cache exists only in memory and is separated by engine; matching cached prefix responses serve further typing. Obsolete requests are cancelled on a new keystroke. Offline/network failures add no rows or blocking messages; invalid engine configuration appears with the other configuration errors. No embedded results page or WebKit dependency is included.
-
 
 ## Dmenu and script commands
 
@@ -254,7 +264,6 @@ printf 'Hello, %s!\n' "$1"
 ```
 
 `silent` discards output and reports an unsuccessful exit in a window. `compact` and `fullOutput` show plain, selectable output after completion, capped at 64 KiB; ANSI formatting, inline mode and remote icon downloads are not implemented. Scripts that use macOS APIs still need porting. Scripts run with your user permissions and can access the network or files just as if you ran them yourself. Password fields hide input visually; script arguments are still process arguments.
-
 
 ## Clipboard history and windows
 
@@ -282,7 +291,6 @@ gnome-extensions enable spot-desktop@andrea.dev
 The extension offers `dev.andrea.Spot.Desktop` on the session bus with `ListWindows`, `FocusWindow`, `SetClipboardEnabled` and `ClipboardChanged`. It watches clipboard ownership only while an explicitly enabled Spot client requests it, stops when the client disconnects, and stores no clipboard history itself. GNOME Shell 45–51 are declared in its metadata; version-specific integration should be tested before distributing it.
 
 On other Wayland compositors, the native worker binds `ext_data_control_manager_v1` for clipboard history and `zwlr_foreign_toplevel_manager_v1` for windows, only for enabled modules. No external helper or runtime is needed. The protocols are compositor-dependent; GNOME does not normally expose them. This module does not add an X11 desktop backend.
-
 
 ## Settings
 
@@ -457,7 +465,7 @@ make test                           # cargo test + translation files
 SPOT_APP_ID=dev.andrea.SpotDev ...  # run next to the installed one (both `spot` and `spot-resident` read it)
 ```
 
-Releasing (maintainer): `scripts/release.sh X.Y.Z` bumps the version, tags, pushes, creates the GitHub release (the Arch package is attached by `.github/workflows/arch-package.yml`) and pins the PKGBUILD checksum.
+Releasing (maintainer): `scripts/release.sh X.Y.Z` bumps the version, tags, pushes, creates the GitHub release (the Arch package is attached by `.github/workflows/arch-package.yml`) and pins the PKGBUILD checksum. It also updates `aur/spot/PKGBUILD` and its `.SRCINFO`. AUR publication is a separate step: see [aur/README.md](aur/README.md). Run the benchmark after feature changes before making new footprint claims.
 
 A checkout runs in English: translations are compiled at install time. To add a language, copy `po/spot.pot` to `po/<lang>.po` and fill in the `msgstr` lines.
 
