@@ -184,5 +184,14 @@ msgstr "Retour"
 msgid "Launch"
 msgstr "Lancer"
 
+msgid "Calculator"
+msgstr "Calculatrice"
+
+msgid "Copy"
+msgstr "Copier"
+
+msgid "Copy hexadecimal"
+msgstr "Copier en hexadécimal"
+
 msgid "Complete"
 msgstr "Compléter"

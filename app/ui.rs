@@ -4,7 +4,9 @@ use crate::config::{self, Command};
 use crate::palette;
 use crate::prefix;
 use crate::providers::{self, SearchProvider};
-use crate::results::{Hit, Then, command_result, file_result, report_launch_error, system_results};
+use crate::results::{
+    Hit, Then, calculator_result, command_result, file_result, report_launch_error, system_results,
+};
 use crate::search::*;
 use crate::style::{self, CARD_WIDTH, SHADOW};
 use crate::tr;
@@ -463,6 +465,11 @@ impl Ui {
             self.sections.borrow_mut().insert("prefix".into(), hits);
             return self.render();
         }
+        if let Some(hit) = calculator_result(&query) {
+            self.sections
+                .borrow_mut()
+                .insert("calc".into(), vec![Rc::new(hit)]);
+        }
         let words = palette::word_rows(&query)
             .into_iter()
             .map(Rc::new)
@@ -496,6 +503,11 @@ impl Ui {
             });
             let cancellable = self.cancellable.borrow().clone();
             for provider in &self.data.providers {
+                if provider.desktop_id == "org.gnome.Calculator.desktop"
+                    && self.sections.borrow().contains_key("calc")
+                {
+                    continue;
+                }
                 let terms = query.split_whitespace().map(String::from).collect();
                 provider.search(terms, &cancellable, callback.clone());
             }
@@ -507,7 +519,7 @@ impl Ui {
 
     fn render(&self) {
         let sections = self.sections.borrow();
-        let order = ["prefix", "apps", "palette"]
+        let order = ["prefix", "calc", "apps", "palette"]
             .into_iter()
             .chain(self.data.providers.iter().map(|p| p.desktop_id.as_str()))
             .chain(["files"]);

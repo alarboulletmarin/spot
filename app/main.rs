@@ -10,6 +10,7 @@
 //! Prefixes:     `!command` runs in a terminal, `search: text` opens a web search.
 //! Settings:     `>` lists them, `spot.conf` holds them.
 
+mod calc;
 mod config;
 mod palette;
 mod prefix;

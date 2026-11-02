@@ -189,5 +189,14 @@ msgstr ""
 msgid "Launch"
 msgstr ""
 
+msgid "Calculator"
+msgstr ""
+
+msgid "Copy"
+msgstr ""
+
+msgid "Copy hexadecimal"
+msgstr ""
+
 msgid "Complete"
 msgstr ""

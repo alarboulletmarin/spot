@@ -245,6 +245,31 @@ pub fn file_result(path: &str, score: i32) -> Option<Hit> {
     })
 }
 
+/// Copy actions are independent of GNOME Calculator and use the active display's clipboard.
+pub fn calculator_result(query: &str) -> Option<Hit> {
+    let n = crate::calc::eval(query)?.ok()?;
+    let text = n.to_string();
+    let hex = crate::calc::hexadecimal(n);
+    let copy = |text: String| -> Action {
+        Box::new(move |_| {
+            if let Some(display) = gdk::Display::default() {
+                display.clipboard().set_text(&text);
+            }
+            Ok(())
+        })
+    };
+    Some(Hit {
+        title: crate::calc::display(n),
+        subtitle: hex.clone().unwrap_or_default(),
+        kind: tr("Calculator"),
+        icon: themed("accessories-calculator-symbolic"),
+        verb: tr("Copy"),
+        activate: copy(text),
+        alt: hex.map(|hex| (tr("Copy hexadecimal"), copy(hex))),
+        ..Default::default()
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

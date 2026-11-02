@@ -10,7 +10,8 @@ Application and file launcher for Linux, in Rust + GTK4 / libadwaita. Press a sh
 
 - **Applications**, matched on name, keywords and executable. The ones you launch often come first.
 - **Files** in your home directory, found as you type.
-- **Everything the GNOME Activities overview finds**: calculator results, Settings panels, Nautilus files.
+- **Built-in calculator**: decimal/hex input, functions and clipboard actions, independent of GNOME Calculator.
+- **GNOME Activities search providers**: Settings panels, Nautilus files and other installed providers.
 - **Commands**: if nothing matches, Enter runs what you typed.
 - **Web search**: if nothing matches, a last row hands what you typed to your browser, which searches with its own engine.
 - **Prefixes**: `!htop` runs in a terminal, `search: rust` searches in your browser. See [Prefixes](#prefixes).
@@ -203,6 +204,13 @@ When the first selected result is an application whose name starts with the type
 Complete=Tab;Right
 # Next=Tab overrides Tab completion; Right still completes.
 ```
+
+
+## Calculator
+
+Calculations appear synchronously above applications, without a GNOME Calculator installation. Supported syntax: decimal `.` or `,`, `0x` hexadecimal and `0b` binary input, `+ - * / % ^`, `× ÷`, parentheses, unary signs, `pi`, `e`, and `sqrt sin cos tan ln log abs`. Powers associate to the right (`2^3^2 = 512`), and `-2^2 = -4`; trigonometric arguments use radians. Bare numbers and constants remain searches. Invalid or nonfinite results produce no calculator row.
+
+`2^10 * 3` gives 3072 with `0xC00` underneath; `0xff + 1` gives 256 / `0x100`. Display grouping follows the system numeric locale. Enter copies the ungrouped decimal result; Ctrl+Enter copies hexadecimal when a positive integer can be represented. The footer shows both actions. The built-in row suppresses the GNOME Calculator provider for that query. Arithmetic uses finite `f64` values, so very large integers have floating-point precision limits.
 
 
 ## Settings
