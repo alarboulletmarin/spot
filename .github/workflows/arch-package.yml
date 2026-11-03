@@ -40,7 +40,7 @@ jobs:
           bsdtar -tf dist/spot-launcher-x86_64.pkg.tar.zst > /tmp/package-contents
           grep -Fx 'usr/bin/spot' /tmp/package-contents
           grep -Fx 'usr/bin/spot-resident' /tmp/package-contents
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: native-arch
           path: dist/*
