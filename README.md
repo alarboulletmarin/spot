@@ -461,13 +461,20 @@ Application names and descriptions are already localized by GLib; the rest of th
 ```bash
 spot --quit; cargo run --release --bin spot-resident -- --daemon &   # run the checkout as the resident instance
 make test                           # cargo test + translation files
+make verify                         # format, Clippy, tests, translations and release build
+make test-ui                        # isolated GTK keyboard / clipboard / styles test
+LANGUAGE=fr make test-ui             # the same test with the French catalog
 
 SPOT_APP_ID=dev.andrea.SpotDev ...  # run next to the installed one (both `spot` and `spot-resident` read it)
 ```
 
-Releasing (maintainer): `scripts/release.sh X.Y.Z` bumps the version, tags, pushes, creates the GitHub release (the Arch package is attached by `.github/workflows/arch-package.yml`) and pins the PKGBUILD checksum. It also updates `aur/spot/PKGBUILD` and its `.SRCINFO`. AUR publication is a separate step: see [aur/README.md](aur/README.md). Run the benchmark after feature changes before making new footprint claims.
+Releasing (maintainer): `scripts/release.sh X.Y.Z` prepares a draft, pins source checksums and explicitly starts **Native release**. The Arch package is built and checked before the release becomes public. See [the release guide](docs/RELEASING.md) for offline simulation, failure recovery and artifact-only builds. AUR publication remains a separate step: [aur/README.md](aur/README.md). Run the benchmark after feature changes before making new footprint claims.
 
-A checkout runs in English: translations are compiled at install time. To add a language, copy `po/spot.pot` to `po/<lang>.po` and fill in the `msgstr` lines.
+The [CI workflow](.github/workflows/ci.yml) runs `make verify` on every branch push and pull request. A separate job runs the GTK test in English and French, on a private D-Bus session and Xvfb display; it compiles the translation catalogs in the test build directory automatically. Both jobs use Ubuntu 24.04 and Rust 1.98.1. To reproduce that compiler locally, prefix a command with `RUSTUP_TOOLCHAIN=1.98.1` after installing it with rustup.
+
+`make test-ui` additionally needs Python 3, `xvfb-run`, `xauth`, `dbus-run-session` and a Mesa OpenGL driver (`python3 xvfb xauth dbus-daemon libgl1-mesa-dri` on Ubuntu). Unit tests include a local HTTP server, so they need loopback socket access. The separate `scripts/test-gnome.sh` integration test needs GNOME Shell and its remote-desktop API; it remains a local check and does not run in this CI. The GTK job does not establish compatibility with every declared GNOME Shell version or other Wayland compositors. Run the benchmark separately when a change affects latency or footprint.
+
+A checkout runs in English: translations are compiled at install time (or when preparing the GTK test). To add a language, copy `po/spot.pot` to `po/<lang>.po` and fill in the `msgstr` lines.
 
 ## License
 
