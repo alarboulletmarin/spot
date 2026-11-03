@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Pin the compiler used for validation; Cargo.toml declares the minimum.
+  RUSTUP_TOOLCHAIN: '1.98.1'
+  CARGO_TERM_COLOR: always
+
+jobs:
+  verify:
+    name: Format, lint, tests, translations and release build
+    # Ubuntu 24.04 ships GTK 4.14, above Cargo.toml's GTK 4.12 minimum.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libgtk-4-dev libadwaita-1-dev libsoup-3.0-dev gettext
+      - name: Install Rust
+        run: rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal --component rustfmt --component clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: make verify
+
+  ui:
+    name: GTK interface (${{ matrix.language }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [en, fr]
+    env:
+      LANGUAGE: ${{ matrix.language }}
+      LC_ALL: C.UTF-8
+      SPOT_TEST_SCREENSHOTS: ${{ runner.temp }}/spot-ui
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libgtk-4-dev libadwaita-1-dev libsoup-3.0-dev gettext python3 xvfb xauth dbus-daemon libgl1-mesa-dri
+      - name: Install Rust
+        run: rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal
+      - uses: Swatinem/rust-cache@v2
+      - name: Keyboard, clipboard and styles on an isolated display
+        run: |
+          mkdir -p "$SPOT_TEST_SCREENSHOTS"
+          make test-ui
+      - name: Keep screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gtk-${{ matrix.language }}
+          path: ${{ runner.temp }}/spot-ui
+          if-no-files-found: ignore
+          retention-days: 7

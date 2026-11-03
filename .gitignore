@@ -19,3 +19,6 @@
 /aur/*/spot/
 
 __pycache__/
+
+# Claude Code local state
+/.claude/

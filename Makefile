@@ -29,6 +29,20 @@ uninstall:
 
 test:
 	cargo test --locked
-	for po in $(PO); do msgfmt -c $$po -o /dev/null; done
+	$(MAKE) translations
 
-.PHONY: all install uninstall test
+translations:
+	set -e; for po in $(PO); do msgfmt -c $$po -o /dev/null; done
+
+# The same checks run locally and on every push / pull request.
+verify:
+	cargo fmt --check
+	cargo clippy --locked --all-targets -- -D warnings
+	$(MAKE) test
+	cargo build --release --locked
+
+# Needs a display server only inside Xvfb, never the active desktop.
+test-ui:
+	scripts/test-ui.sh
+
+.PHONY: all install uninstall test translations verify test-ui
