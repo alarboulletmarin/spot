@@ -46,7 +46,6 @@ jobs:
     env:
       LANGUAGE: ${{ matrix.language }}
       LC_ALL: C.UTF-8
-      SPOT_TEST_SCREENSHOTS: ${{ runner.temp }}/spot-ui
     steps:
       - uses: actions/checkout@v4
       - name: Install system dependencies
@@ -57,6 +56,8 @@ jobs:
         run: rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal
       - uses: Swatinem/rust-cache@v2
       - name: Keyboard, clipboard and styles on an isolated display
+        env:
+          SPOT_TEST_SCREENSHOTS: ${{ runner.temp }}/spot-ui
         run: |
           mkdir -p "$SPOT_TEST_SCREENSHOTS"
           make test-ui
