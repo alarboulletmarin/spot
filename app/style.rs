@@ -62,7 +62,7 @@ window.spot { background: transparent; }
     padding: 7px 12px;
     margin: 1px 0;
     border-radius: 12px;
-    transition: background-color 80ms ease-out;
+    transition: background-color 80ms ease-out, color 80ms ease-out;
 }
 .spot-row:hover { background-color: alpha(currentColor, 0.06); }
 .spot-row:selected { background-color: @accent_bg_color; color: @accent_fg_color; }
@@ -80,7 +80,13 @@ window.spot { background: transparent; }
 .spot-row:selected .spot-sub { opacity: 0.85; }
 .spot-row:selected .spot-kind { background-color: alpha(@accent_fg_color, 0.18); opacity: 1; }
 /* the row's number, shown while the modifier that picks it is held */
-.spot-pick { font-size: 0.72rem; font-weight: 600; min-width: 1em; opacity: 0; }
+.spot-pick {
+    font-size: 0.72rem;
+    font-weight: 600;
+    min-width: 1em;
+    opacity: 0;
+    transition: opacity 100ms ease-out;
+}
 window.spot.picking .spot-pick { opacity: 0.6; }
 
 .spot-footer {

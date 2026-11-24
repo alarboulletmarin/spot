@@ -353,6 +353,8 @@ Palette=catppuccin
 
 Comments go on their own line: this format has no end-of-line comments.
 
+New rows fade in and the list scrolls to the selection on a spring. Both are skipped when the desktop turns animations off (GNOME: Settings › Accessibility › Reduce Animation).
+
 ### Styles
 
 **`default`**: solid card, the selected row is filled with the accent colour.

@@ -10,6 +10,7 @@ use crate::results::{
 use crate::search::*;
 use crate::style::{self, CARD_WIDTH, SHADOW};
 use crate::tr;
+use adw::prelude::AnimationExt;
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib, pango};
 use std::cell::{Cell, RefCell};
@@ -21,6 +22,12 @@ const DEBOUNCE: Duration = Duration::from_millis(90);
 /// How long the sources get before "search the web" is offered. Earlier, it would flash up for
 /// every query and vanish when the first application, provider or file answers.
 const FALLBACK_DELAY: Duration = Duration::from_millis(300);
+/// The spring that scrolls the list to the selection: critically damped, so it never overshoots
+/// and is nearly there within 150 ms; a new key press carries on from where it is, at its speed.
+const SCROLL_SPRING: (f64, f64, f64) = (1.0, 1.0, 1000.0); // damping ratio, mass, stiffness
+/// How long a row that was not on screen takes to fade in: enough to see it arrive, too short
+/// to wait for.
+const ROW_FADE_MS: u32 = 140;
 
 /// An application, with everything matching needs read once instead of on every keystroke.
 struct AppEntry {
@@ -106,6 +113,9 @@ pub struct Ui {
     debounce: RefCell<Option<glib::SourceId>>,
     file_proc: RefCell<Option<gio::Subprocess>>,
     suggestion_cache: RefCell<crate::suggest::Cache>,
+    shown: RefCell<Vec<(String, String)>>, // kind and title of the rows on screen, in order
+    scroll: RefCell<Option<adw::SpringAnimation>>,
+    entering: RefCell<Vec<adw::TimedAnimation>>, // rows fading in
 }
 
 impl Ui {
@@ -207,6 +217,9 @@ impl Ui {
             debounce: RefCell::default(),
             file_proc: RefCell::default(),
             suggestion_cache: RefCell::default(),
+            shown: RefCell::default(),
+            scroll: RefCell::default(),
+            entering: RefCell::default(),
         });
 
         let u = ui.clone();
@@ -251,6 +264,7 @@ impl Ui {
     pub fn present_fresh(self: &Rc<Self>) {
         *self.data.scripts.borrow_mut() = crate::scripts::load();
         self.entry.set_text("");
+        self.shown.borrow_mut().clear(); // a new search: its rows are all new
         self.list.unselect_all(); // the last pick is not this search's
         self.win.remove_css_class("picking");
         self.search(); // an empty query has no rows, except what is wrong in spot.conf
@@ -380,11 +394,48 @@ impl Ui {
         };
         self.list.select_row(Some(&row));
         if let Some(bounds) = row.compute_bounds(&self.list) {
-            self.scroller
-                .vadjustment()
-                .clamp_page(bounds.y() as f64, (bounds.y() + bounds.height()) as f64);
+            self.scroll_to(bounds.y() as f64, (bounds.y() + bounds.height()) as f64);
         }
         self.sync_preview();
+    }
+
+    /// Scroll just enough for `top..bottom` to be in view, as `clamp_page` would, but on a
+    /// spring. Libadwaita skips to the end when the desktop turns animations off.
+    fn scroll_to(&self, top: f64, bottom: f64) {
+        let adjustment = self.scroller.vadjustment();
+        let running = self.scroll.take();
+        // aim from where the last animation was going, so repeated presses do not lag behind
+        let aim = running
+            .as_ref()
+            .map_or(adjustment.value(), |a| a.value_to());
+        let page = adjustment.page_size();
+        let target = if top < aim {
+            top
+        } else if bottom > aim + page {
+            bottom - page
+        } else {
+            aim
+        };
+        let target = target.clamp(adjustment.lower(), (adjustment.upper() - page).max(0.0));
+        let velocity = running.as_ref().map_or(0.0, |a| a.velocity());
+        if let Some(running) = running {
+            running.pause();
+        }
+        if (target - adjustment.value()).abs() < 0.5 && velocity == 0.0 {
+            return;
+        }
+        let a = adjustment.clone();
+        let animation = adw::SpringAnimation::new(
+            &self.scroller,
+            adjustment.value(),
+            target,
+            adw::SpringParams::new(SCROLL_SPRING.0, SCROLL_SPRING.1, SCROLL_SPRING.2),
+            adw::CallbackAnimationTarget::new(move |value| a.set_value(value)),
+        );
+        animation.set_initial_velocity(velocity);
+        animation.set_clamp(true);
+        animation.play();
+        self.scroll.replace(Some(animation));
     }
 
     fn selected_hit(&self) -> Option<Rc<Hit>> {
@@ -693,11 +744,26 @@ impl Ui {
         let index = selected
             .and_then(|pick| results.iter().position(|hit| Rc::ptr_eq(hit, &pick)))
             .unwrap_or(0) as i32;
-        self.list.remove_all();
-        for (position, hit) in results.iter().enumerate() {
-            self.list
-                .append(&row_for(hit, position, &self.query.borrow()));
+        if let Some(scroll) = self.scroll.take() {
+            scroll.pause(); // its target belongs to the rows about to go
         }
+        self.list.remove_all();
+        let shown: Vec<_> = results
+            .iter()
+            .map(|hit| (hit.kind.clone(), hit.title.clone()))
+            .collect();
+        let previous = self.shown.replace(shown.clone());
+        // the rows still fading in are about to go
+        self.entering.borrow_mut().clear();
+        let mut entering = vec![];
+        for (position, hit) in results.iter().enumerate() {
+            let row = row_for(hit, position, &self.query.borrow());
+            self.list.append(&row);
+            if is_new_row(&previous, &shown[position], position) {
+                entering.push(fade_in(&row));
+            }
+        }
+        *self.entering.borrow_mut() = entering;
         let visible = !results.is_empty();
         let last = results.len() as i32 - 1;
         *self.results.borrow_mut() = results;
@@ -741,6 +807,44 @@ impl Ui {
             Then::Query(text) => self.set_query(text),
         }
     }
+}
+
+/// Whether a row fades in: only one that was not on screen, so the rows that stay put while
+/// typing, or while late sources answer, do not flicker. A row that takes the place of one of
+/// the same kind (the calculator's answer, the command being typed, the first application
+/// replaced by another) is the same row being updated, not a new one.
+fn is_new_row(previous: &[(String, String)], row: &(String, String), position: usize) -> bool {
+    !previous.contains(row)
+        && previous
+            .get(position)
+            .is_none_or(|(kind, _)| *kind != row.0)
+}
+
+/// A new row fades in rather than popping up. Libadwaita draws it at once when the desktop turns
+/// animations off. The animation is returned so that whoever replaces the row can drop it.
+fn fade_in(row: &gtk::ListBoxRow) -> adw::TimedAnimation {
+    row.set_opacity(0.0);
+    let weak = row.downgrade();
+    let animation = adw::TimedAnimation::new(
+        row,
+        0.0,
+        1.0,
+        ROW_FADE_MS,
+        adw::CallbackAnimationTarget::new(move |value| {
+            if let Some(row) = weak.upgrade() {
+                row.set_opacity(value);
+            }
+        }),
+    );
+    animation.set_easing(adw::Easing::EaseOutCubic);
+    // libadwaita skips the animation of a widget not on screen yet: start on its first frame,
+    // which comes before that frame is painted
+    let a = animation.clone();
+    row.add_tick_callback(move |_, _| {
+        a.play();
+        glib::ControlFlow::Break
+    });
+    animation
 }
 
 /// The modifier a key is, if it is one.
@@ -889,6 +993,18 @@ mod integration_tests {
         ui.present_fresh();
         settle();
         ui.set_query("fir");
+        ui.search();
+        let entering = |ui: &Ui| ui.entering.borrow().len();
+        // a new search's rows fade in; the same rows rendered again stay put
+        assert_eq!(entering(&ui), ui.results.borrow().len());
+        let row = ui.list.row_at_index(0).unwrap();
+        let until = std::time::Instant::now() + Duration::from_secs(5);
+        while row.opacity() < 1.0 && std::time::Instant::now() < until {
+            settle();
+        }
+        assert_eq!(row.opacity(), 1.0);
+        ui.render();
+        assert_eq!(entering(&ui), 0);
         ui.search();
         assert_eq!(ui.ghost.text(), "firefox");
         ui.entry.set_position(1);
